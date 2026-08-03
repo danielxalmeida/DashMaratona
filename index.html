@@ -2,6 +2,9 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0d13">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Daniel — Maratona do Algarve</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -308,15 +311,23 @@ function normTreino(r){
 }
 
 /* ══════════ CÁLCULOS ══════════ */
+function hoje(){
+  const n=new Date();
+  return new Date(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate()));
+}
+// Ancorar em HOJE e nao no ultimo treino: sem isto o racio congela nos dias de
+// descanso e esconde precisamente a recuperacao que interessa ver.
 function carga(refDate){
-  const R=T('_treinos'), ref=refDate||R.reduce((a,r)=>r.d>a?r.d:a,new Date(0));
+  const R=T('_treinos'), ref=refDate||hoje();
   const jan=n=>R.filter(r=>{const x=(ref-r.d)/864e5;return x>=0&&x<=n;});
   const a7=jan(7).reduce((s,r)=>s+r.carga,0);
   const c28=jan(28).reduce((s,r)=>s+r.carga,0)/4;
   const rr=c28>0?a7/c28:0;
   const at=Pn('racio_ac_atencao',1.3), cr=Pn('racio_ac_critico',1.5);
+  const ult=R.length?R.reduce((a,r)=>r.d>a?r.d:a,new Date(0)):null;
+  const semTreino=ult?Math.max(0,Math.round((ref-ult)/864e5)):0;
   return {ratio:rr, a7:Math.round(a7), c28:Math.round(c28), n7:jan(7).length,
-          km7:jan(7).reduce((s,r)=>s+(r.km||0),0), ref,
+          km7:jan(7).reduce((s,r)=>s+(r.km||0),0), ref, semTreino,
           nivel: rr>cr?'crit' : rr>at?'aten' : 'ok'};
 }
 function serieEF(){
@@ -412,12 +423,12 @@ function topo(){
   document.getElementById('topo').innerHTML=`
     <div class="met ${cls}"><div class="ml">Rácio agudo:crónico</div>
       <div class="mv" style="color:${cor}">${c.ratio.toFixed(2)}</div>
-      <div class="ms">${txt}</div></div>
+      <div class="ms">${txt}${c.semTreino>0?' · '+c.semTreino+'d sem treinar':''}</div></div>
     <div class="met"><div class="ml">Carga 7 dias</div>
       <div class="mv">${c.a7}</div><div class="ms">crónica ${c.c28} · ${c.n7} sessões</div></div>
     <div class="met"><div class="ml">Volume 7 dias</div>
       <div class="mv">${c.km7.toFixed(1)}<span style="font-size:14px"> km</span></div>
-      <div class="ms">até ${curto(c.ref)}</div></div>
+      <div class="ms">7 dias até hoje</div></div>
     <div class="met"><div class="ml">Previsão maratona</div>
       <div class="mv" style="color:var(--orange)">${prev?prev.Tempo:'—'}</div>
       <div class="ms">${prev?prev.Modelo+' · '+prev.Data:'sem registo'}</div></div>`;
@@ -514,8 +525,14 @@ function chartEF(){
 }
 
 function chartCarga(){
-  const R=T('_treinos').filter(r=>r.d>=janela()).sort((a,b)=>a.d-b.d);
-  const pts=R.map(r=>{const c=carga(r.d);return {d:r.d,a:c.a7,c:c.c28,r:c.ratio};});
+  // um ponto por DIA, nao so nos dias de treino: assim ve-se a queda do racio
+  // durante a recuperacao, que e metade da informacao util
+  const ini=janela(), fim=hoje();
+  const pts=[];
+  for(let d=new Date(ini); d<=fim; d=new Date(d.getTime()+864e5)){
+    const c=carga(new Date(d));
+    pts.push({d:new Date(d), a:c.a7, c:c.c28, r:c.ratio});
+  }
   const at=Pn('racio_ac_atencao',1.3), cr=Pn('racio_ac_critico',1.5);
   novo('cCarga',{type:'line',data:{labels:pts.map(p=>curto(p.d)),datasets:[
     {label:'Aguda 7d',data:pts.map(p=>p.a),borderColor:'#a78bfa',backgroundColor:'#a78bfa22',
@@ -523,7 +540,7 @@ function chartCarga(){
     {label:'Crónica 28d',data:pts.map(p=>p.c),borderColor:'#7b80a0',borderWidth:1.5,
      borderDash:[5,4],pointRadius:0,tension:.3,yAxisID:'y'},
     {label:'Rácio',data:pts.map(p=>p.r),borderColor:'#fbbf24',borderWidth:2.5,
-     pointRadius:3,pointBackgroundColor:pts.map(p=>p.r>cr?'#f04b5a':p.r>at?'#f59e42':'#2dd4a0'),
+     pointRadius:pts.length>45?0:2,pointBackgroundColor:pts.map(p=>p.r>cr?'#f04b5a':p.r>at?'#f59e42':'#2dd4a0'),
      tension:.3,yAxisID:'y2'}
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}}},
