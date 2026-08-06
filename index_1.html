@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0d13">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Daniel — Maratona do Algarve</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#0b0d13; --s1:#151822; --s2:#1d2130; --s3:#252a3a;
+  --blue:#4f8ef7; --green:#2dd4a0; --orange:#f59e42; --red:#f04b5a;
+  --purple:#a78bfa; --yellow:#fbbf24; --cyan:#38bdf8;
+  --tx:#e8eaf0; --mut:#7b80a0; --bd:#272b3d; --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+     font-size:15px;line-height:1.55;padding-bottom:env(safe-area-inset-bottom)}
+.page{max-width:1280px;margin:0 auto;padding:clamp(12px,3vw,28px)}
+
+/* ---------- cabeçalho ---------- */
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:clamp(17px,4.2vw,23px);font-weight:700;line-height:1.25}
+.sub{color:var(--mut);font-size:clamp(11px,2.6vw,13px);margin-top:3px}
+.st{font-size:11px;padding:5px 11px;border-radius:20px;border:1px solid var(--bd);background:var(--s1);white-space:nowrap}
+.st.ok{color:var(--green);border-color:#2dd4a055}
+.st.err{color:var(--red);border-color:#f04b5a55}
+
+/* ---------- blocos ---------- */
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:clamp(14px,3vw,20px);margin-bottom:14px}
+.card.crit{border-color:var(--red);background:linear-gradient(180deg,#f04b5a14,var(--s1))}
+.card.aten{border-color:var(--orange);background:linear-gradient(180deg,#f59e4210,var(--s1))}
+.ttl{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+
+.grid{display:grid;gap:10px}
+.g-met{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.g-2{grid-template-columns:1fr}
+.g-day{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+@media(min-width:900px){.g-2{grid-template-columns:1fr 1fr}}
+
+.met{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+.met.crit{border-color:var(--red)} .met.aten{border-color:var(--orange)} .met.ok{border-color:#2dd4a055}
+.ml{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.mv{font-size:clamp(19px,5vw,25px);font-weight:700;line-height:1.15}
+.ms{font-size:11px;color:var(--mut);margin-top:3px;line-height:1.35}
+
+/* ---------- separadores ---------- */
+.tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--bd);
+      overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:none;color:var(--mut);padding:11px 13px;font-size:13px;cursor:pointer;
+     border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit;min-height:44px}
+.tab.on{color:var(--tx);border-bottom-color:var(--blue);font-weight:600}
+.pane{display:none} .pane.on{display:block}
+
+/* ---------- filtros ---------- */
+.fil{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.chip{background:var(--s2);border:1px solid var(--bd);border-radius:20px;padding:8px 14px;font-size:12.5px;
+      cursor:pointer;color:var(--mut);font-family:inherit;min-height:38px}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+
+/* ---------- tabelas ---------- */
+.scr{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:100%}
+th{text-align:left;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+   padding:7px 8px;border-bottom:1px solid var(--bd);white-space:nowrap;font-weight:600}
+td{padding:9px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.nw{white-space:nowrap}
+
+select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:9px;
+       padding:11px 12px;font-size:14px;width:100%;font-family:inherit;min-height:44px}
+
+.bg{display:inline-block;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.b-gr{background:#2dd4a022;color:var(--green)} .b-or{background:#f59e4222;color:var(--orange)}
+.b-rd{background:#f04b5a22;color:var(--red)}   .b-bl{background:#4f8ef722;color:var(--blue)}
+.b-pu{background:#a78bfa22;color:var(--purple)} .b-gy{background:#7b80a022;color:var(--mut)}
+.b-cy{background:#38bdf822;color:var(--cyan)}
+
+.box{background:var(--s2);border-radius:10px;padding:13px 16px;border-left:3px solid var(--green);
+     margin-top:13px;font-size:13.5px;line-height:1.55}
+.box.r{border-left-color:var(--red)} .box.o{border-left-color:var(--orange)} .box.b{border-left-color:var(--blue)}
+
+.ch{position:relative;width:100%;height:230px}
+@media(min-width:700px){.ch{height:290px}}
+.ch.sm{height:190px}
+@media(min-width:700px){.ch.sm{height:225px}}
+.note{font-size:10.5px;color:var(--mut);font-style:italic;margin-top:8px;line-height:1.45}
+
+/* ---------- calendário ---------- */
+.wk{margin-bottom:18px}
+.wkh{display:flex;align-items:center;gap:9px;margin-bottom:9px;flex-wrap:wrap}
+.wkt{font-size:13px;font-weight:600}
+.day{background:var(--s2);border-radius:10px;padding:9px 10px;border-top:3px solid var(--bd);font-size:12px;min-height:74px}
+.day.q{border-top-color:var(--orange)} .day.l{border-top-color:var(--purple)}
+.day.r{border-top-color:var(--bd);opacity:.6} .day.p{border-top-color:var(--red)}
+.day.today{box-shadow:0 0 0 2px var(--blue)}
+.dn{font-size:9.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.dc{font-size:11.5px;margin-top:4px;font-weight:600;line-height:1.35}
+.dd{font-size:10px;margin-top:4px}
+
+.zb{display:flex;height:34px;border-radius:8px;overflow:hidden;margin:8px 0}
+.zs{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#0b0d13;
+    text-align:center;line-height:1.15;padding:2px}
+.empty{color:var(--mut);font-size:13px;padding:10px 0}
+.ld{text-align:center;padding:2.5rem 1rem;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="hd">
+  <div>
+    <h1>🏃 Maratona do Algarve</h1>
+    <p class="sub" id="sub">a carregar…</p>
+  </div>
+  <div class="st" id="st">a ligar…</div>
+</div>
+
+<div class="grid g-met" id="topo" style="margin-bottom:14px"></div>
+<div id="alerta"></div>
+
+<div class="tabs" id="tabs">
+  <button class="tab on" data-t="dia">Dia</button>
+  <button class="tab" data-t="tend">Tendências</button>
+  <button class="tab" data-t="prev">Previsão</button>
+  <button class="tab" data-t="plano">Plano</button>
+  <button class="tab" data-t="zonas">Zonas &amp; Ritmos</button>
+  <button class="tab" data-t="tl">Timeline</button>
+  <button class="tab" data-t="todos">Treinos</button>
+</div>
+
+<div class="pane on" id="p-dia">
+  <div class="card">
+    <div class="ttl">Escolhe um dia</div>
+    <select id="sel"><option>a carregar…</option></select>
+    <div id="dia"></div>
+  </div>
+</div>
+
+<div class="pane" id="p-tend">
+  <div class="fil" id="filtros"></div>
+  <div class="card">
+    <div class="ttl">📈 Eficiência aeróbica — está a resultar?</div>
+    <div class="ch"><canvas id="cEF"></canvas></div>
+    <p class="note" id="nEF"></p>
+    <div id="efBox"></div>
+  </div>
+  <div class="card">
+    <div class="ttl">⚖️ Carga e risco</div>
+    <div class="ch sm"><canvas id="cCarga"></canvas></div>
+    <p class="note">EWMA (linha cheia) dá peso decrescente aos dias, sem os degraus da janela fixa (tracejado). Ideal 0,8–1,3.</p>
+  </div>
+  <div class="card">
+    <div class="ttl">📊 Volume, ritmo e FC</div>
+    <div class="ch"><canvas id="cVol"></canvas></div>
+    <p class="note" id="nVol"></p>
+  </div>
+</div>
+
+<div class="pane" id="p-prev">
+  <div class="card">
+    <div class="ttl">🎯 Como a previsão evoluiu</div>
+    <div class="ch"><canvas id="cPrev"></canvas></div>
+    <p class="note">Cada ponto é uma reestimativa registada. A tendência mostra se o treino está a mover a previsão.</p>
+  </div>
+  <div class="card">
+    <div class="ttl">Registo de previsões</div>
+    <div class="scr"><table><thead><tr><th>Data</th><th>Prova</th><th>Modelo</th><th>Tempo</th><th>Pace</th><th>Conf.</th><th>Base</th></tr></thead>
+    <tbody id="tPrev"></tbody></table></div>
+  </div>
+</div>
+
+<div class="pane" id="p-plano">
+  <div class="card">
+    <div class="ttl">📅 Semana anterior, atual e duas seguintes</div>
+    <div id="cal"></div>
+  </div>
+  <div class="card">
+    <div class="ttl">✅ Aderência ao plano</div>
+    <div class="ch sm"><canvas id="cAder"></canvas></div>
+    <div class="scr" style="margin-top:12px"><table><thead><tr><th>Sem</th><th>Fase</th><th>Prescrito</th><th>Real</th><th>Aderência</th></tr></thead>
+    <tbody id="tAder"></tbody></table></div>
+  </div>
+</div>
+
+<div class="pane" id="p-zonas">
+  <div class="grid g-2">
+    <div class="card">
+      <div class="ttl">🎯 Ritmos-alvo</div>
+      <p class="note" style="margin:0 0 10px" id="nRit"></p>
+      <div class="scr"><table><tbody id="tRit"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="ttl">⚡ Zonas</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:4px">Frequência cardíaca</div>
+      <div class="zb" id="zFC"></div>
+      <div style="font-size:12px;color:var(--mut);margin:14px 0 4px">Potência</div>
+      <div class="zb" id="zW"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ttl">🏅 Recordes</div>
+    <div class="scr"><table><thead><tr><th>Distância</th><th>Tempo</th><th>Data</th><th>Contexto</th></tr></thead>
+    <tbody id="tRec"></tbody></table></div>
+  </div>
+</div>
+
+<div class="pane" id="p-tl">
+  <div class="card">
+    <div class="ttl">Alertas, previsões, inputs e avaliações</div>
+    <div class="fil" id="filCat"></div>
+    <div class="scr"><table><thead><tr><th>Data</th><th>Cat.</th><th>Descrição</th><th>Previsto</th><th>Real</th><th>Estado</th></tr></thead>
+    <tbody id="tTL"></tbody></table></div>
+  </div>
+</div>
+
+<div class="pane" id="p-todos">
+  <div class="card">
+    <div class="ttl">Todos os treinos</div>
+    <div class="fil" id="filTipo"></div>
+    <div class="scr" style="max-height:65vh;overflow-y:auto">
+      <table><thead><tr><th>Data</th><th>Nome</th><th>Cat.</th><th>Dist</th><th>Pace</th><th>FC</th><th>Carga</th></tr></thead>
+      <tbody id="tTodos"></tbody></table>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ══════════ CONFIG ══════════ */
+const API = 'https://script.google.com/macros/s/AKfycbxMi3aE3l53SjgrCzH91PVHGg5a6CbbqtTJ34STy1VjaxVnQuJNbd1fVjMeumG0BqToIQ/exec';
+const GC='rgba(255,255,255,.06)', TC='rgba(255,255,255,.5)';
+
+let D={}, charts={}, filtro=42, filCat='Todas', filTipo='Todas';
+
+/* ══════════ PARSERS ══════════ */
+function pDate(v){
+  if(!v) return null;
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})[-_/](\d{1,2})[-_/](\d{1,2})/);
+  if(m) return new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+  m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if(m) return new Date(Date.UTC(+m[3],+m[2]-1,+m[1]));
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+const iso=d=>d?d.toISOString().slice(0,10):'';
+const DIAS=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function pretty(d){return d?`${DIAS[d.getUTCDay()]}, ${d.getUTCDate()} ${MES[d.getUTCMonth()]}`:'—';}
+function curto(d){return d?`${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}`:'';}
+
+function pTime(v){
+  if(v===''||v==null) return null;
+  const s=String(v).trim();
+  if(/[hms]/i.test(s)){
+    let t=0; const h=s.match(/(\d+)\s*h/i),m=s.match(/(\d+)\s*m/i),g=s.match(/(\d+)\s*s/i);
+    if(h)t+=+h[1]*3600; if(m)t+=+m[1]*60; if(g)t+=+g[1];
+    if(h||m||g) return t;
+  }
+  const p=s.split(':').map(parseFloat);
+  if(p.length===3&&!p.some(isNaN)) return p[0]*3600+p[1]*60+p[2];
+  if(p.length===2&&!p.some(isNaN)) return p[0]*60+p[1];
+  const n=parseFloat(s.replace(',','.')); return isNaN(n)?null:n;
+}
+function pNum(v){
+  if(v===''||v==null) return null;
+  let s=String(v).trim().replace(/\s/g,'').replace(',','.').replace(/^0+(\d)/,'$1');
+  const n=parseFloat(s); return isNaN(n)?null:n;
+}
+function clock(s){
+  if(s==null) return '—'; s=Math.round(s);
+  const h=Math.floor(s/3600),m=Math.floor(s%3600/60),g=s%60;
+  return h>0?`${h}:${String(m).padStart(2,'0')}:${String(g).padStart(2,'0')}`
+            :`${m}:${String(g).padStart(2,'0')}`;
+}
+function pace(s){
+  if(s==null||!isFinite(s)) return '—';
+  const m=Math.floor(s/60),g=Math.round(s%60);
+  return g===60?`${m+1}:00`:`${m}:${String(g).padStart(2,'0')}`;
+}
+
+/* ══════════ ACESSO AOS DADOS ══════════ */
+const T=n=>D[n]||[];
+function P(k,fb){
+  const r=T('Parametros').find(x=>String(x.Chave).trim()===k);
+  return r&&r.Valor!==''?r.Valor:fb;
+}
+function Pn(k,fb){const v=pNum(P(k)); return v==null?fb:v;}
+
+/* ══════════ NORMALIZAÇÃO ══════════ */
+function normTreino(r){
+  const d=pDate(r.Data);
+  const seg=pTime(r.Tempo_seg)??pTime(r.Tempo);
+  const km=pNum(r.Distancia_km);
+  const fc=pNum(r.FC_media);
+  const o={
+    d, iso:iso(d), nome:r.Nome||'', tipo:r.Tipo||'', cat:r.Categoria||'',
+    km, seg, fc, fcmax:pNum(r.FC_max), cad:pNum(r.Cadencia),
+    carga:pNum(r.Carga)||0, cal:pNum(r.Calorias), nota:r.Nota||''
+  };
+  o.pace = (km&&seg) ? seg/km : null;
+  // eficiência aeróbica: metros por minuto por batimento
+  o.ef = (km&&seg&&fc) ? (km*1000/(seg/60))/fc : null;
+  return o;
+}
+
+/* ══════════ CÁLCULOS ══════════ */
+function hoje(){
+  const n=new Date();
+  return new Date(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate()));
+}
+// Ancorar em HOJE e nao no ultimo treino: sem isto o racio congela nos dias de
+// descanso e esconde precisamente a recuperacao que interessa ver.
+function carga(refDate){
+  const R=T('_treinos'), ref=refDate||hoje();
+  const jan=n=>R.filter(r=>{const x=(ref-r.d)/864e5;return x>=0&&x<=n;});
+  const a7=jan(7).reduce((s,r)=>s+r.carga,0);
+  const c28=jan(28).reduce((s,r)=>s+r.carga,0)/4;
+  const rr=c28>0?a7/c28:0;
+  const at=Pn('racio_ac_atencao',1.3), cr=Pn('racio_ac_critico',1.5);
+  const ult=R.length?R.reduce((a,r)=>r.d>a?r.d:a,new Date(0)):null;
+  const semTreino=ult?Math.max(0,Math.round((ref-ult)/864e5)):0;
+
+  // EWMA: a fadiga desvanece-se em vez de sair de golpe da janela.
+  // Evita os degraus artificiais da media movel (ex: 1,52 -> 1,10 num dia
+  // so porque uma sessao grande completou 7 dias).
+  const ewma=(()=>{
+    if(!R.length) return 0;
+    const la=2/(7+1), lc=2/(28+1);
+    const porDia={}; R.forEach(r=>{porDia[r.iso]=(porDia[r.iso]||0)+r.carga;});
+    const ini=R.reduce((a,r)=>r.d<a?r.d:a,R[0].d);
+    let ea=0, ec=0;
+    for(let d=new Date(ini); d<=ref; d=new Date(d.getTime()+864e5)){
+      const c=porDia[dateToISO(d)]||0;
+      ea=c*la+ea*(1-la); ec=c*lc+ec*(1-lc);
+    }
+    return ec>0?ea/ec:0;
+  })();
+
+  return {ratio:ewma, rolling:rr, a7:Math.round(a7), c28:Math.round(c28), n7:jan(7).length,
+          km7:jan(7).reduce((s,r)=>s+(r.km||0),0), ref, semTreino,
+          nivel: ewma>cr?'crit' : ewma>at?'aten' : 'ok'};
+}
+function serieEF(){
+  // só treinos comparáveis: leves e longos, com FC
+  return T('_treinos').filter(r=>r.ef&&['Leve','Longo'].includes(r.cat))
+                      .sort((a,b)=>a.d-b.d);
+}
+function media(arr,janela){
+  return arr.map((p,i)=>{
+    const lim=new Date(p.d.getTime()-janela*864e5);
+    const j=arr.slice(0,i+1).filter(q=>q.d>=lim);
+    return {d:p.d, v:j.reduce((s,q)=>s+q.ef,0)/j.length};
+  });
+}
+function semanaAtual(){
+  const ini=pDate(P('plano_inicio','2026-06-29'));
+  const hoje=new Date();
+  const h=new Date(Date.UTC(hoje.getFullYear(),hoje.getMonth(),hoje.getDate()));
+  return Math.max(1,Math.floor((h-ini)/(7*864e5))+1);
+}
+function semanaIntervalo(n){
+  const ini=pDate(P('plano_inicio','2026-06-29'));
+  const a=new Date(ini.getTime()+(n-1)*7*864e5);
+  return [a, new Date(a.getTime()+6*864e5)];
+}
+function ritmos(){
+  const base=pTime(P('limiar_pace','4:15'));
+  const zonas=[['Recuperação','offset_recuperacao'],['Leve / Longo','offset_leve'],
+               ['Maratona','offset_maratona'],['Limiar','offset_limiar'],
+               ['Intervalos','offset_intervalos'],['Repetições','offset_repeticoes']];
+  return zonas.map(([nome,ch])=>{
+    const raw=String(P(ch,'0 a 0')).split(/\s*a\s*/).map(x=>parseFloat(x));
+    const lo=base+Math.min(raw[0],raw[1]), hi=base+Math.max(raw[0],raw[1]);
+    return {nome, lo, hi};
+  });
+}
+
+/* ══════════ CARREGAR ══════════ */
+async function load(){
+  const st=document.getElementById('st');
+  try{
+    const r=await fetch(API);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    if(!j.success) throw new Error(j.error||'erro');
+    if(!j.tabelas){
+      document.getElementById('st').textContent='● versão antiga';
+      document.getElementById('st').className='st err';
+      document.getElementById('topo').innerHTML=
+        '<div class="card aten" style="grid-column:1/-1"><div class="ttl">Falta atualizar o Apps Script</div>'+
+        '<p style="font-size:13.5px">O endpoint ainda responde no formato antigo. Substitui o código pelo <strong>apps_script_v6.gs</strong> e faz <em>Implementar → Gerir implementações → lápis → Nova versão</em>. '+
+        'Editando a implementação existente, o URL mantém-se e esta página passa a funcionar sozinha.</p></div>';
+      return;
+    }
+    D=j.tabelas||{};
+    D._treinos=T('Treinos').map(normTreino).filter(x=>x.d);
+    st.textContent='● ligado'; st.className='st ok';
+    render();
+  }catch(e){
+    st.textContent='● sem ligação'; st.className='st err';
+    document.getElementById('sub').textContent=e.message;
+    document.getElementById('topo').innerHTML='<div class="card"><p class="empty">Não foi possível carregar os dados.</p></div>';
+  }
+}
+
+function render(){
+  const passos=[subtitulo,topo,seletorDia,filtros,timeline,todos,
+                calendario,aderencia,previsoes,zonasRitmos,recordes,
+                chartEF,chartCarga,chartVol];
+  passos.forEach(f=>{try{f();}catch(e){console.error(f.name,e);}});
+}
+
+/* ══════════ RENDER ══════════ */
+function subtitulo(){
+  const w=semanaAtual(), tot=T('Plano_Runna').length||23;
+  const alg=pDate(P('prova_algarve')), ova=pDate(P('prova_ovar'));
+  const hoje=new Date();
+  const dias=x=>x?Math.ceil((x-hoje)/864e5):null;
+  const bits=[`Semana ${w}/${tot}`];
+  if(dias(ova)>0) bits.push(`Ovar em ${dias(ova)}d`);
+  if(dias(alg)>0) bits.push(`Algarve em ${dias(alg)}d`);
+  document.getElementById('sub').textContent=bits.join(' · ');
+}
+
+function topo(){
+  const c=carga();
+  const prev=[...T('Previsoes')].filter(p=>/algarve/i.test(p.Prova))
+              .sort((a,b)=>String(b.Data).localeCompare(String(a.Data)))[0];
+  const cls={crit:'crit',aten:'aten',ok:'ok'}[c.nivel];
+  const cor={crit:'var(--red)',aten:'var(--orange)',ok:'var(--green)'}[c.nivel];
+  const txt={crit:'🔴 crítico',aten:'⚠ atenção',ok:'✓ saudável'}[c.nivel];
+
+  document.getElementById('topo').innerHTML=`
+    <div class="met ${cls}"><div class="ml">Rácio A:C (EWMA)</div>
+      <div class="mv" style="color:${cor}">${c.ratio.toFixed(2)}</div>
+      <div class="ms">${txt}${c.semTreino>0?' · '+c.semTreino+'d sem treinar':''}<br><span style="opacity:.65">janela fixa ${c.rolling.toFixed(2)}</span></div></div>
+    <div class="met"><div class="ml">Carga 7 dias</div>
+      <div class="mv">${c.a7}</div><div class="ms">crónica ${c.c28} · ${c.n7} sessões</div></div>
+    <div class="met"><div class="ml">Volume 7 dias</div>
+      <div class="mv">${c.km7.toFixed(1)}<span style="font-size:14px"> km</span></div>
+      <div class="ms">7 dias até hoje</div></div>
+    <div class="met"><div class="ml">Previsão maratona</div>
+      <div class="mv" style="color:var(--orange)">${prev?prev.Tempo:'—'}</div>
+      <div class="ms">${prev?prev.Modelo+' · '+prev.Data:'sem registo'}</div></div>`;
+
+  const a=document.getElementById('alerta');
+  if(c.nivel==='crit') a.innerHTML=`<div class="box r"><strong>Rácio em ${c.ratio.toFixed(2)}</strong> — acima do limite de ${Pn('racio_ac_critico',1.5)}. Convém 1-2 dias de descanso real antes de novo esforço de qualidade.</div>`;
+  else if(c.nivel==='aten') a.innerHTML=`<div class="box o"><strong>Rácio em ${c.ratio.toFixed(2)}</strong> — zona de atenção. Vale a pena aliviar os treinos leves.</div>`;
+  else a.innerHTML='';
+}
+
+function seletorDia(){
+  const s=document.getElementById('sel');
+  const L=[...T('_treinos')].sort((a,b)=>b.iso.localeCompare(a.iso));
+  s.innerHTML=L.map(r=>`<option value="${r.iso}">${curto(r.d)} — ${r.nome} (${r.km??'?'}km)</option>`).join('');
+  s.onchange=()=>dia(s.value);
+  if(L.length) dia(L[0].iso);
+}
+function dia(k){
+  const r=T('_treinos').find(x=>x.iso===k);
+  const an=T('Analises').filter(a=>iso(pDate(a.Data))===k);
+  const el=document.getElementById('dia');
+  if(!r){el.innerHTML='<p class="empty">Sem dados.</p>';return;}
+  const linha=(a,b)=>`<tr><td style="color:var(--mut)">${a}</td><td style="text-align:right">${b}</td></tr>`;
+  let h=`<div class="box b" style="border-left-color:var(--blue)">
+    <div style="font-weight:600;margin-bottom:9px">${pretty(r.d)} — ${r.nome} ${r.tipo==='Race'?'<span class="bg b-rd">Prova</span>':''} ${r.cat?`<span class="bg b-gy">${r.cat}</span>`:''}</div>
+    <table>${linha('Distância',(r.km??'—')+' km')}${linha('Tempo',clock(r.seg))}${linha('Pace',pace(r.pace)+'/km')}`;
+  if(r.fc) h+=linha('FC média / máx',r.fc+' / '+(r.fcmax||'—'));
+  if(r.cad) h+=linha('Cadência',r.cad+' spm');
+  if(r.carga) h+=linha('Carga',r.carga);
+  if(r.ef) h+=linha('Eficiência aeróbica',r.ef.toFixed(3));
+  h+='</table>';
+  if(r.nota) h+=`<p style="margin-top:10px;font-size:12.5px;color:var(--mut)">${r.nota}</p>`;
+  if(an.length){
+    h+='<div style="margin-top:13px;border-top:1px solid var(--bd);padding-top:11px">';
+    an.forEach(a=>{h+=`<div style="margin-bottom:9px">${bgCat(a.Categoria)} ${bgEst(a.Estado)}<br><span style="font-size:13px">${a.Descricao||''}</span></div>`;});
+    h+='</div>';
+  }
+  el.innerHTML=h+'</div>';
+}
+const bgCat=c=>`<span class="bg ${({'Alerta':'b-rd','Previsao':'b-bl','Input Utilizador':'b-pu','Treino Falhado':'b-or','Avaliacao':'b-gy','Infraestrutura':'b-cy'})[c]||'b-gy'}">${c||'—'}</span>`;
+const bgEst=e=>`<span class="bg ${e==='Confirmado'?'b-gr':e==='Falhou'?'b-rd':'b-or'}">${e||'—'}</span>`;
+
+function filtros(){
+  const F=[[21,'3 sem'],[42,'6 sem'],[90,'3 meses'],[9999,'Tudo']];
+  document.getElementById('filtros').innerHTML=F.map(([v,l])=>
+    `<button class="chip ${filtro===v?'on':''}" data-f="${v}">${l}</button>`).join('');
+  document.querySelectorAll('#filtros .chip').forEach(b=>b.onclick=()=>{
+    filtro=+b.dataset.f; filtros(); chartEF(); chartCarga(); chartVol();
+  });
+}
+const janela=()=>{
+  const R=T('_treinos'); if(!R.length) return new Date(0);
+  const max=R.reduce((a,r)=>r.d>a?r.d:a,new Date(0));
+  return new Date(max.getTime()-filtro*864e5);
+};
+
+/* ══════════ GRÁFICOS ══════════ */
+function novo(id,cfg){ if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),cfg); }
+const eixoX={ticks:{color:TC,font:{size:9},maxRotation:55,autoSkip:true,maxTicksLimit:12},grid:{display:false}};
+
+function chartEF(){
+  const jan=Pn('tendencia_janela_dias',21);
+  const S=serieEF().filter(r=>r.d>=janela());
+  const M=media(S,jan);
+  document.getElementById('nEF').textContent=
+    `Velocidade por batimento (m/min ÷ bpm). Só treinos leves e longos com FC — ${S.length} sessões na janela. Média móvel de ${jan} dias.`;
+
+  novo('cEF',{type:'line',data:{labels:S.map(r=>curto(r.d)),datasets:[
+    {label:'Por sessão',data:S.map(r=>r.ef),borderColor:'transparent',
+     pointBackgroundColor:'#38bdf8',pointRadius:4,showLine:false},
+    {label:`Tendência ${jan}d`,data:M.map(m=>m.v),borderColor:'#2dd4a0',borderWidth:2.5,
+     pointRadius:0,tension:.35,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:11},boxWidth:12}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(+c.raw).toFixed(3)}}},
+    scales:{x:eixoX,y:{ticks:{color:TC,font:{size:10}},grid:{color:GC},
+      title:{display:true,text:'m/min por bpm',color:TC,font:{size:10}}}}}});
+
+  // leitura da tendência
+  const box=document.getElementById('efBox');
+  if(M.length>=4){
+    const meio=Math.floor(M.length/2);
+    const a=M.slice(0,meio).reduce((s,x)=>s+x.v,0)/meio;
+    const b=M.slice(meio).reduce((s,x)=>s+x.v,0)/(M.length-meio);
+    const pct=(b-a)/a*100;
+    const cls=pct>1?'':pct<-1?'r':'o';
+    const txt=pct>1?`a melhorar ${pct.toFixed(1)}%`:pct<-1?`a piorar ${Math.abs(pct).toFixed(1)}%`:'estável';
+    box.innerHTML=`<div class="box ${cls}"><strong>Tendência: ${txt}</strong> na janela selecionada.
+      ${pct>1?'Mais metros por batimento — o treino está a produzir adaptação.'
+        :pct<-1?'Menos metros por batimento. Pode ser fadiga acumulada, calor, ou recuperação incompleta — vale a pena cruzar com a timeline.'
+        :'Sem alteração significativa. Normal em blocos curtos ou de manutenção.'}</div>`;
+  } else box.innerHTML='<div class="box o">Poucos dados na janela para uma tendência fiável. Alarga o filtro.</div>';
+}
+
+function chartCarga(){
+  // um ponto por DIA, nao so nos dias de treino: assim ve-se a queda do racio
+  // durante a recuperacao, que e metade da informacao util
+  const ini=janela(), fim=hoje();
+  const pts=[];
+  for(let d=new Date(ini); d<=fim; d=new Date(d.getTime()+864e5)){
+    const c=carga(new Date(d));
+    pts.push({d:new Date(d), a:c.a7, c:c.c28, r:c.ratio, rf:c.rolling});
+  }
+  const at=Pn('racio_ac_atencao',1.3), cr=Pn('racio_ac_critico',1.5);
+  novo('cCarga',{type:'line',data:{labels:pts.map(p=>curto(p.d)),datasets:[
+    {label:'Aguda 7d',data:pts.map(p=>p.a),borderColor:'#a78bfa',backgroundColor:'#a78bfa22',
+     borderWidth:2,pointRadius:0,tension:.3,fill:true,yAxisID:'y'},
+    {label:'Crónica 28d',data:pts.map(p=>p.c),borderColor:'#7b80a0',borderWidth:1.5,
+     borderDash:[5,4],pointRadius:0,tension:.3,yAxisID:'y'},
+    {label:'Rácio fixo',data:pts.map(p=>p.rf),borderColor:'#7b80a0',borderWidth:1.5,
+     borderDash:[5,4],pointRadius:0,tension:.3,yAxisID:'y2'},
+    {label:'Rácio EWMA',data:pts.map(p=>p.r),borderColor:'#fbbf24',borderWidth:2.5,
+     pointRadius:pts.length>45?0:2,pointBackgroundColor:pts.map(p=>p.r>cr?'#f04b5a':p.r>at?'#f59e42':'#2dd4a0'),
+     tension:.3,yAxisID:'y2'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}}},
+    scales:{x:eixoX,y:{position:'left',ticks:{color:TC,font:{size:10}},grid:{color:GC}},
+      y2:{position:'right',min:0,max:2.5,ticks:{color:'#fbbf24',font:{size:10}},grid:{display:false}}}}});
+}
+
+function chartVol(){
+  const R=T('_treinos').filter(r=>r.d>=janela()).sort((a,b)=>a.d-b.d);
+  document.getElementById('nVol').textContent=`${R.length} sessões na janela.`;
+  novo('cVol',{data:{labels:R.map(r=>curto(r.d)),datasets:[
+    {type:'bar',label:'km',data:R.map(r=>r.km||0),backgroundColor:'#4f8ef766',yAxisID:'y'},
+    {type:'line',label:'Pace',data:R.map(r=>r.pace?r.pace/60:null),borderColor:'#2dd4a0',
+     borderWidth:2,pointRadius:2,tension:.3,spanGaps:true,yAxisID:'y2'},
+    {type:'line',label:'FC',data:R.map(r=>r.fc),borderColor:'#f04b5a',borderWidth:1.5,
+     borderDash:[4,3],pointRadius:2,tension:.3,spanGaps:true,yAxisID:'y3'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}},
+      tooltip:{callbacks:{label:c=>c.dataset.label==='Pace'?'Pace: '+pace(c.raw*60)+'/km'
+        :c.dataset.label==='FC'?'FC: '+c.raw:'Dist: '+c.raw+'km'}}},
+    scales:{x:eixoX,y:{position:'left',ticks:{color:TC,font:{size:10}},grid:{color:GC}},
+      y2:{position:'right',reverse:true,ticks:{color:'#2dd4a0',font:{size:10},callback:v=>pace(v*60)},grid:{display:false}},
+      y3:{display:false}}}});
+}
+
+/* ══════════ PREVISÕES ══════════ */
+function previsoes(){
+  const L=[...T('Previsoes')].sort((a,b)=>String(a.Data).localeCompare(String(b.Data)));
+  document.getElementById('tPrev').innerHTML = L.length? [...L].reverse().map(p=>`
+    <tr><td class="nw">${p.Data}</td><td>${p.Prova}</td><td>${p.Modelo}</td>
+    <td class="nw" style="font-weight:600">${p.Tempo}</td><td class="nw">${p.Pace||'—'}</td>
+    <td>${bgConf(p.Confianca)}</td><td style="color:var(--mut);font-size:12px">${p.Base||''}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="empty">Sem previsões registadas.</td></tr>';
+
+  const provas=[...new Set(L.map(p=>p.Prova))];
+  const cores=['#4f8ef7','#2dd4a0','#f59e42','#a78bfa'];
+  const labels=[...new Set(L.map(p=>p.Data))].sort();
+  novo('cPrev',{type:'line',data:{labels,datasets:provas.map((pv,i)=>({
+    label:pv,
+    data:labels.map(d=>{const m=L.filter(x=>x.Prova===pv&&x.Data===d);
+      return m.length?pTime(m[m.length-1].Tempo)/60:null;}),
+    borderColor:cores[i%4],backgroundColor:'transparent',borderWidth:2.5,
+    pointRadius:5,pointBackgroundColor:cores[i%4],tension:.3,spanGaps:true
+  }))},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:11},boxWidth:12}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+clock(c.raw*60)}}},
+    scales:{x:eixoX,y:{reverse:true,ticks:{color:TC,font:{size:10},callback:v=>clock(v*60)},
+      grid:{color:GC},title:{display:true,text:'tempo previsto',color:TC,font:{size:10}}}}}});
+}
+const bgConf=c=>`<span class="bg ${c==='Alta'?'b-gr':c==='Baixa'?'b-rd':'b-or'}">${c||'—'}</span>`;
+
+/* ══════════ CALENDÁRIO ══════════ */
+function calendario(){
+  const atual=semanaAtual(), plano=T('Plano_Runna');
+  const hojeISO=iso(new Date(Date.UTC(new Date().getFullYear(),new Date().getMonth(),new Date().getDate())));
+  const cols=['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
+  const nomes=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+  let h='';
+
+  for(let n=atual-1;n<=atual+2;n++){
+    const w=plano.find(x=>pNum(x.Semana)===n); if(!w) continue;
+    const [ini]=semanaIntervalo(n);
+    const badge = n===atual?'<span class="bg b-bl">Esta semana</span>'
+                : n<atual?'<span class="bg b-gy">Anterior</span>'
+                : '<span class="bg b-pu">Próxima</span>';
+    h+=`<div class="wk"><div class="wkh">${badge}
+      <span class="wkt">Semana ${n} · ${w.Fase}</span>
+      <span style="font-size:11.5px;color:var(--mut)">${curto(ini)} · ${w.Volume_km}km previstos</span></div>
+      <div class="grid g-day">`;
+
+    cols.forEach((c,i)=>{
+      const dia=new Date(ini.getTime()+i*864e5), dISO=iso(dia);
+      const txt=w[c]||'—';
+      const feito=T('_treinos').find(r=>r.iso===dISO);
+      const low=txt.toLowerCase();
+      let cls = /descanso/.test(low)&&!feito ? 'r'
+              : /prova/.test(low) ? 'p'
+              : /longo/.test(low) ? 'l'
+              : /repeti|intervalo|ritmo|piramide|drop|variavei|progressiv|divisao|polimento|maximo/.test(low) ? 'q' : '';
+      if(dISO===hojeISO) cls+=' today';
+      h+=`<div class="day ${cls}"><div class="dn">${nomes[i].slice(0,3)} ${curto(dia)}</div>
+        <div class="dc">${txt}</div>
+        ${feito?`<div class="dd" style="color:var(--green)">✓ ${feito.km}km · ${pace(feito.pace)}</div>`
+                :(dia<new Date()&&!/descanso|ginasio/.test(low)?'<div class="dd" style="color:var(--red)">✗ não registado</div>':'')}
+      </div>`;
+    });
+    h+='</div></div>';
+  }
+  document.getElementById('cal').innerHTML=h||'<p class="empty">Plano não encontrado.</p>';
+}
+
+/* ══════════ ADERÊNCIA ══════════ */
+function aderencia(){
+  const atual=semanaAtual(), plano=T('Plano_Runna').filter(w=>pNum(w.Semana)<=atual);
+  const linhas=plano.map(w=>{
+    const n=pNum(w.Semana), [a,b]=semanaIntervalo(n);
+    const real=T('_treinos').filter(r=>r.d>=a&&r.d<=new Date(b.getTime()+864e5-1))
+                            .reduce((s,r)=>s+(r.km||0),0);
+    const prev=pNum(w.Volume_km)||0;
+    return {n, fase:w.Fase, prev, real, pct: prev>0?real/prev*100:0};
+  });
+  document.getElementById('tAder').innerHTML=[...linhas].reverse().map(l=>{
+    const cls=l.pct>=95?'b-gr':l.pct>=80?'b-or':'b-rd';
+    return `<tr><td>${l.n}</td><td style="font-size:12px;color:var(--mut)">${l.fase}</td>
+      <td class="nw">${l.prev.toFixed(1)}km</td><td class="nw">${l.real.toFixed(1)}km</td>
+      <td><span class="bg ${cls}">${l.pct.toFixed(0)}%</span></td></tr>`;}).join('')
+    ||'<tr><td colspan="5" class="empty">Sem dados.</td></tr>';
+
+  novo('cAder',{data:{labels:linhas.map(l=>'S'+l.n),datasets:[
+    {type:'bar',label:'Prescrito',data:linhas.map(l=>l.prev),backgroundColor:'#7b80a055'},
+    {type:'bar',label:'Real',data:linhas.map(l=>l.real),
+     backgroundColor:linhas.map(l=>l.pct>=95?'#2dd4a0aa':l.pct>=80?'#f59e42aa':'#f04b5aaa')}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}}},
+    scales:{x:eixoX,y:{ticks:{color:TC,font:{size:10}},grid:{color:GC},
+      title:{display:true,text:'km',color:TC,font:{size:10}}}}}});
+}
+
+/* ══════════ ZONAS E RITMOS ══════════ */
+function zonasRitmos(){
+  const lim=P('limiar_pace','4:15');
+  document.getElementById('nRit').textContent=`Derivados do limiar atual (${lim}/km). Muda o limiar em Parametros e tudo aqui acompanha.`;
+  document.getElementById('tRit').innerHTML=ritmos().map(z=>
+    `<tr><td>${z.nome}</td><td style="text-align:right;font-weight:600" class="nw">${pace(z.lo)} – ${pace(z.hi)}<span style="color:var(--mut);font-weight:400">/km</span></td></tr>`).join('');
+
+  const zf=[['Z1',0,Pn('zona_fc_z1_max',140),'#4f8ef7'],['Z2',Pn('zona_fc_z1_max',140),Pn('zona_fc_z2_max',155),'#2dd4a0'],
+            ['Z3',Pn('zona_fc_z2_max',155),Pn('zona_fc_z3_max',168),'#fbbf24'],['Z4',Pn('zona_fc_z3_max',168),Pn('zona_fc_z4_max',178),'#f59e42'],
+            ['Z5',Pn('zona_fc_z4_max',178),Pn('fc_max',188),'#f04b5a']];
+  document.getElementById('zFC').innerHTML=zf.map(([n,a,b,c])=>
+    `<div class="zs" style="background:${c};flex:1">${n}<br>${a?a+'–':'<'}${b}</div>`).join('');
+
+  const zw=[['Z1',0,Pn('zona_w_z1_max',180),'#4f8ef7'],['Z2',Pn('zona_w_z1_max',180),Pn('zona_w_z2_max',210),'#2dd4a0'],
+            ['Z3',Pn('zona_w_z2_max',210),Pn('zona_w_z3_max',235),'#fbbf24'],['Z4',Pn('zona_w_z3_max',235),Pn('zona_w_z4_max',255),'#f59e42'],
+            ['Z5',Pn('zona_w_z4_max',255),'','#f04b5a']];
+  document.getElementById('zW').innerHTML=zw.map(([n,a,b,c])=>
+    `<div class="zs" style="background:${c};flex:1">${n}<br>${b?(a?a+'–':'<')+b:'>'+a}</div>`).join('');
+}
+function recordes(){
+  document.getElementById('tRec').innerHTML=T('Recordes').map(r=>
+    `<tr><td>${r.Distancia}</td><td class="nw" style="font-weight:600">${r.Tempo}</td>
+     <td class="nw" style="color:var(--mut);font-size:12px">${r.Data||'—'}</td>
+     <td style="color:var(--mut);font-size:12px">${r.Contexto||''}</td></tr>`).join('')
+    ||'<tr><td colspan="4" class="empty">Sem recordes.</td></tr>';
+}
+
+/* ══════════ TIMELINE ══════════ */
+function timeline(){
+  const A=T('Analises'), cats=['Todas',...new Set(A.map(a=>a.Categoria).filter(Boolean))];
+  document.getElementById('filCat').innerHTML=cats.map(c=>
+    `<button class="chip ${filCat===c?'on':''}" data-c="${c}">${c}</button>`).join('');
+  document.querySelectorAll('#filCat .chip').forEach(b=>b.onclick=()=>{filCat=b.dataset.c;timeline();});
+
+  const L=(filCat==='Todas'?A:A.filter(a=>a.Categoria===filCat))
+    .sort((a,b)=>String(b.Data).localeCompare(String(a.Data)));
+  document.getElementById('tTL').innerHTML=L.map(a=>`
+    <tr><td class="nw">${a.Data}</td><td>${bgCat(a.Categoria)}</td>
+    <td style="min-width:190px">${a.Descricao||''}</td>
+    <td style="color:var(--mut);font-size:12px;min-width:110px">${a.Valor_Previsto||'—'}</td>
+    <td style="font-size:12px;min-width:110px">${a.Valor_Real||'—'}</td>
+    <td>${bgEst(a.Estado)}</td></tr>`).join('')
+    ||'<tr><td colspan="6" class="empty">Sem registos.</td></tr>';
+}
+
+/* ══════════ TODOS ══════════ */
+function todos(){
+  const R=T('_treinos'), cats=['Todas',...new Set(R.map(r=>r.cat).filter(Boolean))];
+  document.getElementById('filTipo').innerHTML=cats.map(c=>
+    `<button class="chip ${filTipo===c?'on':''}" data-c="${c}">${c}</button>`).join('');
+  document.querySelectorAll('#filTipo .chip').forEach(b=>b.onclick=()=>{filTipo=b.dataset.c;todos();});
+
+  const L=(filTipo==='Todas'?R:R.filter(r=>r.cat===filTipo))
+    .sort((a,b)=>b.iso.localeCompare(a.iso));
+  document.getElementById('tTodos').innerHTML=L.map(r=>`
+    <tr><td class="nw">${r.iso}</td><td>${r.nome}${r.tipo==='Race'?' <span class="bg b-rd">Prova</span>':''}</td>
+    <td><span class="bg b-gy">${r.cat||'—'}</span></td>
+    <td class="nw">${r.km??'?'}km</td><td class="nw">${pace(r.pace)}</td>
+    <td>${r.fc||'—'}</td><td>${r.carga||'—'}</td></tr>`).join('')
+    ||'<tr><td colspan="7" class="empty">Sem treinos.</td></tr>';
+}
+
+/* ══════════ SEPARADORES ══════════ */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById('p-'+t.dataset.t).classList.add('on');
+  Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}});
+});
+
+load();
+</script>
+</body>
+</html>
