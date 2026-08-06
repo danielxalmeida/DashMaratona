@@ -337,7 +337,7 @@ function carga(refDate){
     const ini=R.reduce((a,r)=>r.d<a?r.d:a,R[0].d);
     let ea=0, ec=0;
     for(let d=new Date(ini); d<=ref; d=new Date(d.getTime()+864e5)){
-      const c=porDia[dateToISO(d)]||0;
+      const c=porDia[iso(d)]||0;
       ea=c*la+ea*(1-la); ec=c*lc+ec*(1-lc);
     }
     return ec>0?ea/ec:0;
