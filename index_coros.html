@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algarve 2026 — Noite &amp; Dia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0F1322;
+  --panel:#171D33;
+  --panel-2:#1E2542;
+  --line:#2B3455;
+  --text:#E7EBF7;
+  --muted:#8794B9;
+  --dim:#5C6892;
+
+  /* noite = recuperação */
+  --night:#63D2C3;
+  --night-soft:rgba(99,210,195,.16);
+  /* dia = esforço */
+  --day:#FFB03B;
+  --day-soft:rgba(255,176,59,.16);
+  /* alerta */
+  --alert:#FF5C7A;
+  --ok:#7BE08C;
+
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+
+/* ---------- cabeçalho ---------- */
+.top{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:22px;
+  padding-bottom:22px;margin-bottom:26px;
+  border-bottom:1px solid var(--line);
+}
+.title{flex:1 1 320px;min-width:0}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:8px;
+}
+h1{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:800;font-size:clamp(30px,5vw,46px);line-height:1.02;
+  margin:0;letter-spacing:-.02em;
+}
+h1 em{font-style:normal;color:var(--night)}
+.sub{color:var(--muted);font-size:14px;margin-top:10px}
+
+.count{
+  font-family:'IBM Plex Mono',monospace;text-align:right;
+  border-left:1px solid var(--line);padding-left:22px;
+}
+.count b{display:block;font-size:44px;font-weight:600;line-height:1;color:var(--day)}
+.count span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+
+/* ---------- cartões ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px;margin-bottom:30px}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px 16px 14px;position:relative;overflow:hidden;
+}
+.card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line)}
+.card.n::after{background:var(--night)}
+.card.d::after{background:var(--day)}
+.card.a::after{background:var(--alert)}
+.card h3{
+  margin:0 0 10px;font-family:'IBM Plex Mono',monospace;font-weight:500;
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);
+}
+.val{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;line-height:1}
+.val small{font-size:14px;color:var(--muted);font-weight:400;margin-left:3px}
+.note{font-size:12px;color:var(--muted);margin-top:7px}
+
+/* ---------- secções ---------- */
+section{margin-bottom:34px}
+.hd{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
+.hd h2{
+  font-family:'Bricolage Grotesque',sans-serif;font-weight:600;
+  font-size:20px;margin:0;letter-spacing:-.01em;
+}
+.hd p{margin:0;color:var(--dim);font-size:13px}
+.板{}
+.box{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px;margin-top:14px;
+}
+
+/* legenda */
+.key{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}
+.key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* ---------- banda noite/dia (assinatura) ---------- */
+.band{width:100%;overflow-x:auto}
+.band svg{display:block;min-width:640px}
+
+/* ---------- tabela ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  text-align:left;font-family:'IBM Plex Mono',monospace;font-weight:500;
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);
+  padding:0 10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+td{padding:11px 10px;border-bottom:1px solid rgba(43,52,85,.5);white-space:nowrap}
+td.num{font-family:'IBM Plex Mono',monospace}
+tbody tr:hover{background:var(--panel-2)}
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;
+  font-family:'IBM Plex Mono',monospace;border:1px solid var(--line);color:var(--muted);
+}
+.tag.longo{border-color:rgba(255,176,59,.45);color:var(--day)}
+.tag.qual{border-color:rgba(255,92,122,.45);color:var(--alert)}
+.tag.leve{border-color:rgba(99,210,195,.4);color:var(--night)}
+.scroll{overflow-x:auto}
+
+/* ---------- estados ---------- */
+.msg{padding:26px;text-align:center;color:var(--muted);font-size:14px}
+.msg b{color:var(--text);display:block;margin-bottom:6px;font-weight:600}
+.pill{
+  display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:99px;
+  border:1px solid var(--line);color:var(--dim);margin-left:10px;
+}
+.pill.on{border-color:rgba(123,224,140,.4);color:var(--ok)}
+.pill.off{border-color:rgba(255,92,122,.35);color:var(--alert)}
+
+footer{
+  margin-top:50px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--dim);font-size:12px;font-family:'IBM Plex Mono',monospace;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
+}
+button.rl{
+  background:none;border:1px solid var(--line);color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;padding:6px 12px;border-radius:99px;cursor:pointer;
+}
+button.rl:hover{border-color:var(--night);color:var(--night)}
+:focus-visible{outline:2px solid var(--night);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){
+  .card,.box{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+@media(max-width:640px){
+  .count{border-left:0;padding-left:0;text-align:left}
+  .val{font-size:25px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title">
+      <div class="eyebrow">Maratona do Algarve · 6 Dez 2026 · sub 3:30</div>
+      <h1>Noite <em>&amp;</em> Dia</h1>
+      <p class="sub">O que o corpo repõe de noite contra o que se lhe pede de dia.</p>
+    </div>
+    <div class="count">
+      <b id="dias">—</b>
+      <span>dias para a prova</span>
+    </div>
+  </header>
+
+  <div class="cards" id="cards"></div>
+
+  <section>
+    <div class="hd">
+      <h2>A banda</h2>
+      <p>Cada coluna é um dia. Acima, a noite que o precedeu. Abaixo, o treino que se seguiu.</p>
+    </div>
+    <div class="box">
+      <div class="band" id="band"><div class="msg">A carregar…</div></div>
+      <div class="key">
+        <span><i style="background:var(--night)"></i>Sono profundo + REM</span>
+        <span><i style="background:var(--night-soft)"></i>Sono leve</span>
+        <span><i style="background:var(--day)"></i>Carga de treino</span>
+        <span><i style="background:var(--alert)"></i>HRV abaixo do normal</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="hd">
+      <h2>Rácio de carga</h2>
+      <p>EWMA da Sheet e rácio nativo COROS, lado a lado. Nenhum substitui o outro.</p>
+    </div>
+    <div class="box">
+      <div class="band" id="ratio"><div class="msg">A carregar…</div></div>
+      <div class="key">
+        <span><i style="background:var(--day)"></i>EWMA (λ 2/8 · 2/29)</span>
+        <span><i style="background:var(--night)"></i>Rácio COROS</span>
+        <span><i style="background:var(--alert)"></i>Limiar 1,5</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="hd">
+      <h2>Eficiência aeróbia</h2>
+      <p>Metros por minuto por batimento. Só treinos leves e longos, média de 21 dias.</p>
+    </div>
+    <div class="box">
+      <div class="band" id="ef"><div class="msg">A carregar…</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="hd">
+      <h2>Sessões recentes</h2>
+      <p>Métricas COROS quando existem.</p>
+    </div>
+    <div class="box scroll">
+      <table id="tbl"><tbody><tr><td class="msg">A carregar…</td></tr></tbody></table>
+    </div>
+  </section>
+
+  <footer>
+    <span id="fonte">Fonte: Google Sheets via Apps Script v6</span>
+    <button class="rl" id="reload">Recarregar</button>
+  </footer>
+</div>
+
+<script>
+const ENDPOINT = 'https://script.google.com/macros/s/AKfycbxMi3aE3l53SjgrCzH91PVHGg5a6CbbqtTJ34STy1VjaxVnQuJNbd1fVjMeumG0BqToIQ/exec';
+const PROVA = new Date('2026-12-06T00:00:00');
+
+/* ---------------- utilitários ---------------- */
+
+// converte serial do Sheets, ISO ou dd/mm/aaaa para 'YYYY-MM-DD'
+function iso(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v==='number'||/^\d{5}(\.\d+)?$/.test(String(v).trim())){
+    const n=Number(v);
+    const ms=Math.round((n-25569)*86400000);
+    return new Date(ms).toISOString().slice(0,10);
+  }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  const d=new Date(s);
+  return isNaN(d)?null:d.toISOString().slice(0,10);
+}
+const dayMs=86400000;
+function addDays(isoStr,n){return new Date(new Date(isoStr+'T00:00:00').getTime()+n*dayMs).toISOString().slice(0,10);}
+function diffDays(a,b){return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/dayMs);}
+function num(v){
+  if(v===null||v===undefined||v==='') return null;
+  const n=parseFloat(String(v).replace(',','.').replace(/[^\d.\-]/g,''));
+  return isNaN(n)?null:n;
+}
+function fmt(n,d=1){return n===null||n===undefined||isNaN(n)?'—':n.toFixed(d).replace('.',',');}
+function shortDate(isoStr){
+  const d=new Date(isoStr+'T00:00:00');
+  return d.getDate()+'/'+(d.getMonth()+1);
+}
+// tempo em segundos -> min:seg por km
+function pace(sec){
+  if(!sec||sec<=0) return '—';
+  const m=Math.floor(sec/60), s=Math.round(sec%60);
+  return m+':'+String(s).padStart(2,'0');
+}
+
+// aceita [[cabeçalho],[linha]] ou [{...}]
+function rows(tab){
+  if(!tab) return [];
+  if(Array.isArray(tab) && tab.length && Array.isArray(tab[0])){
+    const head=tab[0].map(h=>String(h).trim());
+    return tab.slice(1).filter(r=>r.some(c=>c!==''&&c!==null)).map(r=>{
+      const o={}; head.forEach((h,i)=>o[h]=r[i]===undefined?'':r[i]); return o;
+    });
+  }
+  if(Array.isArray(tab)) return tab;
+  return [];
+}
+// procura chave com nome aproximado
+function pick(o,...names){
+  const keys=Object.keys(o);
+  for(const n of names){
+    const k=keys.find(k=>k.toLowerCase().replace(/[^a-z0-9]/g,'')===n.toLowerCase().replace(/[^a-z0-9]/g,''));
+    if(k!==undefined) return o[k];
+  }
+  return undefined;
+}
+
+/* ---------------- SVG ---------------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs={}){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+function svg(w,h){const s=el('svg',{viewBox:`0 0 ${w} ${h}`,width:'100%',height:h,role:'img'});return s;}
+function txt(s,x,y,cls,anchor='middle',size=10,fill='#5C6892'){
+  const t=el('text',{x,y,'text-anchor':anchor,fill,'font-size':size,'font-family':'IBM Plex Mono, monospace'});
+  t.textContent=s; s&&cls&&t.setAttribute('class',cls); return t;
+}
+
+/* ---------------- estado ---------------- */
+let DATA={};
+
+async function load(){
+  try{
+    const r=await fetch(ENDPOINT,{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    DATA=await r.json();
+    render();
+  }catch(e){
+    document.getElementById('band').innerHTML=
+      `<div class="msg"><b>Não foi possível ler a Sheet</b>${e.message}. Verifica o deploy do Apps Script.</div>`;
+    console.error(e);
+  }
+}
+
+/* ---------------- cálculos ---------------- */
+
+// EWMA ancorado a HOJE, nunca ao último treino
+function ewmaSeries(sessions,upTo){
+  const la=2/8, lc=2/29;
+  const byDay={};
+  sessions.forEach(s=>{ if(s.data) byDay[s.data]=(byDay[s.data]||0)+(s.carga||0); });
+  const days=Object.keys(byDay).sort();
+  if(!days.length) return [];
+  let cur=days[0], a=0, c=0, out=[];
+  const end=upTo;
+  while(cur<=end){
+    const load=byDay[cur]||0;
+    a=load*la+a*(1-la);
+    c=load*lc+c*(1-lc);
+    out.push({data:cur,agudo:a,cronico:c,racio:c>0?a/c:null});
+    cur=addDays(cur,1);
+  }
+  return out;
+}
+
+function render(){
+  const hoje=new Date().toISOString().slice(0,10);
+  document.getElementById('dias').textContent=Math.max(0,Math.round((PROVA-new Date())/dayMs));
+
+  // --- treinos ---
+  const treinos=rows(DATA['Untitled']||DATA['Treinos']).map(o=>({
+    data:iso(pick(o,'Data')),
+    nome:pick(o,'Nome')||'',
+    dist:num(pick(o,'Distancia_km','Distancia')),
+    seg:num(pick(o,'Tempo_seg')),
+    fc:num(pick(o,'FC_media')),
+    cad:num(pick(o,'Cadencia')),
+    carga:num(pick(o,'Carga'))||0,
+    cat:String(pick(o,'Categoria')||'').trim()
+  })).filter(t=>t.data).sort((a,b)=>a.data<b.data?-1:1);
+
+  // --- COROS ---
+  const coros=rows(DATA['Treinos_COROS']).map(o=>({
+    data:iso(pick(o,'Data')),
+    pot:num(pick(o,'Potencia_W','Potencia')),
+    cad:num(pick(o,'Cadencia_spm')),
+    te:num(pick(o,'TE_aerobio')),
+    foco:pick(o,'Training_Focus')||'',
+    perf:pick(o,'Performance')||''
+  })).filter(x=>x.data);
+  const corosBy={}; coros.forEach(c=>corosBy[c.data]=c);
+
+  const saude=rows(DATA['Diario_Saude']).map(o=>({
+    data:iso(pick(o,'Data')),
+    passos:num(pick(o,'Passos')),
+    stress:num(pick(o,'Stress_medio')),
+    fcRep:num(pick(o,'FC_repouso')),
+    total:num(pick(o,'Sono_total_min')),
+    prof:num(pick(o,'Sono_profundo_min')),
+    leve:num(pick(o,'Sono_leve_min')),
+    rem:num(pick(o,'Sono_REM_min')),
+    hrv:num(pick(o,'HRV_media')),
+    hrvMin:num(pick(o,'HRV_min_normal')),
+    hrvBase:num(pick(o,'HRV_baseline')),
+    rec:num(pick(o,'Recovery_pct')),
+    recNivel:pick(o,'Recovery_nivel')||''
+  })).filter(x=>x.data).sort((a,b)=>a.data<b.data?-1:1);
+  const saudeBy={}; saude.forEach(s=>saudeBy[s.data]=s);
+
+  const cargaC=rows(DATA['Carga_COROS']).map(o=>({
+    data:iso(pick(o,'Data')),
+    racio:num(pick(o,'Racio_COROS'))
+  })).filter(x=>x.data&&x.racio!==null).sort((a,b)=>a.data<b.data?-1:1);
+
+  const temSaude=saude.length>0;
+  document.getElementById('fonte').innerHTML=
+    'Sheets via Apps Script v6'+
+    `<span class="pill ${temSaude?'on':'off'}">Diario_Saude ${temSaude?saude.length+' dias':'vazio'}</span>`;
+
+  const ewma=ewmaSeries(treinos,hoje);
+  const ewmaBy={}; ewma.forEach(e=>ewmaBy[e.data]=e.racio);
+
+  cards(saude,ewma,cargaC,treinos,hoje);
+  banda(saude,treinos,hoje);
+  ratioChart(ewma,cargaC);
+  efChart(treinos);
+  tabela(treinos,corosBy,saudeBy);
+}
+
+/* ---------------- cartões ---------------- */
+function cards(saude,ewma,cargaC,treinos,hoje){
+  const last=saude.length?saude[saude.length-1]:null;
+  const rEw=ewma.length?ewma[ewma.length-1].racio:null;
+  const rCo=cargaC.length?cargaC[cargaC.length-1].racio:null;
+
+  // volume dos últimos 7 dias
+  const lim=addDays(hoje,-6);
+  const vol=treinos.filter(t=>t.data>=lim).reduce((s,t)=>s+(t.dist||0),0);
+
+  const alerta=v=>v===null?'':(v>1.5?'a':v>1.3?'d':'n');
+
+  const c=[
+    last&&last.rec!==null?{
+      k:'n',h:'Recuperação',v:fmt(last.rec,0),u:'%',n:last.recNivel||'—'
+    }:null,
+    last&&last.hrv!==null?{
+      k:last.hrvMin!==null&&last.hrv<last.hrvMin?'a':'n',
+      h:'HRV de sono',v:fmt(last.hrv,0),u:'ms',
+      n:last.hrvBase!==null?'base '+fmt(last.hrvBase,0)+' ms':'—'
+    }:null,
+    last&&last.total!==null?{
+      k:last.total<390?'a':'n',h:'Sono',
+      v:Math.floor(last.total/60)+'h'+String(Math.round(last.total%60)).padStart(2,'0'),u:'',
+      n:last.prof!==null?fmt(last.prof,0)+' min profundo':'—'
+    }:null,
+    {k:alerta(rEw),h:'Rácio EWMA',v:fmt(rEw,2),u:'',n:'λ 2/8 · 2/29, ancorado a hoje'},
+    rCo!==null?{k:alerta(rCo),h:'Rácio COROS',v:fmt(rCo,2),u:'',n:'algoritmo nativo'}:null,
+    {k:'d',h:'Volume 7 dias',v:fmt(vol,1),u:'km',n:treinos.filter(t=>t.data>=addDays(hoje,-6)).length+' sessões'}
+  ].filter(Boolean);
+
+  document.getElementById('cards').innerHTML=c.map(x=>`
+    <div class="card ${x.k}">
+      <h3>${x.h}</h3>
+      <div class="val">${x.v}${x.u?`<small>${x.u}</small>`:''}</div>
+      <div class="note">${x.n}</div>
+    </div>`).join('');
+}
+
+/* ---------------- banda noite/dia ---------------- */
+function banda(saude,treinos,hoje){
+  const host=document.getElementById('band');
+  if(!saude.length){
+    host.innerHTML=`<div class="msg"><b>Ainda sem dados de saúde</b>
+      Assim que a aba <code>Diario_Saude</code> tiver linhas, a banda aparece aqui.</div>`;
+    return;
+  }
+  const dias=[];
+  const ini=saude[0].data;
+  for(let d=ini; d<=hoje; d=addDays(d,1)) dias.push(d);
+  const últimos=dias.slice(-28);
+
+  const cargaBy={};
+  treinos.forEach(t=>cargaBy[t.data]=(cargaBy[t.data]||0)+(t.carga||0));
+  const sBy={}; saude.forEach(s=>sBy[s.data]=s);
+
+  const W=Math.max(660,últimos.length*34), H=250;
+  const mid=H/2, padT=18, padB=26;
+  const bw=Math.min(20,(W-40)/últimos.length-6);
+  const step=(W-40)/últimos.length;
+
+  const maxSono=480; // 8h de referência
+  const maxCarga=Math.max(120,...Object.values(cargaBy));
+
+  const s=svg(W,H);
+  // linha do horizonte
+  s.appendChild(el('line',{x1:0,y1:mid,x2:W,y2:mid,stroke:'#2B3455','stroke-width':1}));
+  s.appendChild(txt('NOITE',6,mid-8,'','start',9,'#5C6892'));
+  s.appendChild(txt('DIA',6,mid+16,'','start',9,'#5C6892'));
+
+  últimos.forEach((d,i)=>{
+    const x=20+i*step+(step-bw)/2;
+    const sd=sBy[d];
+    // noite: profundo+REM sólido, leve translúcido
+    if(sd&&sd.total){
+      const escala=(mid-padT)/maxSono;
+      const leve=(sd.leve||0)*escala;
+      const bom=((sd.prof||0)+(sd.rem||0))*escala;
+      s.appendChild(el('rect',{x,y:mid-leve-bom,width:bw,height:leve,fill:'rgba(99,210,195,.16)',rx:2}));
+      s.appendChild(el('rect',{x,y:mid-bom,width:bw,height:bom,fill:'#63D2C3',rx:2}));
+      // HRV abaixo do normal → marca
+      if(sd.hrv!==null&&sd.hrvMin!==null&&sd.hrv<sd.hrvMin){
+        s.appendChild(el('circle',{cx:x+bw/2,cy:mid-leve-bom-7,r:3,fill:'#FF5C7A'}));
+      }
+    }
+    // dia: carga
+    const carga=cargaBy[d]||0;
+    if(carga>0){
+      const h=(carga/maxCarga)*(mid-padB);
+      s.appendChild(el('rect',{x,y:mid+1,width:bw,height:h,fill:'#FFB03B',rx:2,opacity:.9}));
+    }
+    if(i%4===0||i===últimos.length-1){
+      s.appendChild(txt(shortDate(d),x+bw/2,H-6,'','middle',9));
+    }
+    const g=el('rect',{x:20+i*step,y:0,width:step,height:H,fill:'transparent'});
+    const sdz=sd?`${Math.floor((sd.total||0)/60)}h${String(Math.round((sd.total||0)%60)).padStart(2,'0')} sono · HRV ${sd.hrv??'—'} ms`:'sem dados';
+    const t=el('title'); t.textContent=`${d}\n${sdz}\nCarga ${carga||0}`;
+    g.appendChild(t); s.appendChild(g);
+  });
+
+  host.innerHTML=''; host.appendChild(s);
+}
+
+/* ---------------- rácios ---------------- */
+function ratioChart(ewma,cargaC){
+  const host=document.getElementById('ratio');
+  if(!ewma.length){host.innerHTML='<div class="msg">Sem treinos registados.</div>';return;}
+  const serie=ewma.slice(-90);
+  const W=Math.max(660,serie.length*8), H=210, pad={l:34,r:12,t:14,b:24};
+  const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+  const max=Math.max(1.8,...serie.map(d=>d.racio||0),...cargaC.map(d=>d.racio));
+  const x=i=>pad.l+(i/(serie.length-1||1))*iw;
+  const y=v=>pad.t+ih-(v/max)*ih;
+
+  const s=svg(W,H);
+  // zonas
+  s.appendChild(el('rect',{x:pad.l,y:y(1.5),width:iw,height:Math.max(0,y(1.3)-y(1.5)),fill:'rgba(255,176,59,.07)'}));
+  s.appendChild(el('rect',{x:pad.l,y:pad.t,width:iw,height:Math.max(0,y(1.5)-pad.t),fill:'rgba(255,92,122,.09)'}));
+  [0.5,1,1.3,1.5].forEach(v=>{
+    if(v>max)return;
+    s.appendChild(el('line',{x1:pad.l,y1:y(v),x2:W-pad.r,y2:y(v),
+      stroke:v===1.5?'#FF5C7A':'#2B3455','stroke-width':1,'stroke-dasharray':v===1.5?'4 3':'0'}));
+    s.appendChild(txt(String(v).replace('.',','),pad.l-6,y(v)+3,'','end',9));
+  });
+
+  const line=(pts,color,width=2)=>{
+    if(pts.length<2)return;
+    const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    s.appendChild(el('path',{d,fill:'none',stroke:color,'stroke-width':width,
+      'stroke-linejoin':'round','stroke-linecap':'round'}));
+  };
+  line(serie.map((d,i)=>d.racio===null?null:[x(i),y(d.racio)]).filter(Boolean),'#FFB03B');
+
+  if(cargaC.length){
+    const idx={}; serie.forEach((d,i)=>idx[d.data]=i);
+    const pts=cargaC.filter(c=>idx[c.data]!==undefined).map(c=>[x(idx[c.data]),y(c.racio)]);
+    line(pts,'#63D2C3',2);
+    pts.forEach(p=>s.appendChild(el('circle',{cx:p[0],cy:p[1],r:2.2,fill:'#63D2C3'})));
+  }
+
+  [0,Math.floor(serie.length/2),serie.length-1].forEach(i=>{
+    if(serie[i]) s.appendChild(txt(shortDate(serie[i].data),x(i),H-6,'','middle',9));
+  });
+  host.innerHTML=''; host.appendChild(s);
+}
+
+/* ---------------- eficiência aeróbia ---------------- */
+function efChart(treinos){
+  const host=document.getElementById('ef');
+  const pts=treinos.filter(t=>/leve|longo/i.test(t.cat)&&t.dist&&t.seg&&t.fc)
+    .map(t=>({data:t.data,ef:(t.dist*1000/(t.seg/60))/t.fc,cat:t.cat}));
+  if(pts.length<3){host.innerHTML='<div class="msg">Poucos treinos leves ou longos com FC para traçar a EF.</div>';return;}
+
+  // média móvel 21 dias
+  const mm=pts.map(p=>{
+    const jan=pts.filter(q=>diffDays(q.data,p.data)>=0&&diffDays(q.data,p.data)<=21);
+    return {data:p.data,v:jan.reduce((s,q)=>s+q.ef,0)/jan.length};
+  });
+
+  const W=Math.max(660,pts.length*11), H=200, pad={l:38,r:12,t:14,b:24};
+  const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+  const vals=pts.map(p=>p.ef);
+  const min=Math.min(...vals)*0.97, max=Math.max(...vals)*1.03;
+  const x=i=>pad.l+(i/(pts.length-1||1))*iw;
+  const y=v=>pad.t+ih-((v-min)/(max-min||1))*ih;
+
+  const s=svg(W,H);
+  [min,(min+max)/2,max].forEach(v=>{
+    s.appendChild(el('line',{x1:pad.l,y1:y(v),x2:W-pad.r,y2:y(v),stroke:'#2B3455','stroke-width':1}));
+    s.appendChild(txt(fmt(v,2),pad.l-6,y(v)+3,'','end',9));
+  });
+  pts.forEach((p,i)=>{
+    s.appendChild(el('circle',{cx:x(i),cy:y(p.ef),r:3,
+      fill:/longo/i.test(p.cat)?'#FFB03B':'#63D2C3',opacity:.75}));
+  });
+  const d=mm.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.v).toFixed(1)).join(' ');
+  s.appendChild(el('path',{d,fill:'none',stroke:'#E7EBF7','stroke-width':2,'stroke-linejoin':'round'}));
+
+  [0,Math.floor(pts.length/2),pts.length-1].forEach(i=>{
+    if(pts[i]) s.appendChild(txt(shortDate(pts[i].data),x(i),H-6,'','middle',9));
+  });
+  host.innerHTML=''; host.appendChild(s);
+}
+
+/* ---------------- tabela ---------------- */
+function tabela(treinos,corosBy,saudeBy){
+  const últimos=treinos.slice(-14).reverse();
+  const cls=c=>/longo/i.test(c)?'longo':/qualidade|prova/i.test(c)?'qual':'leve';
+  const html=`
+    <thead><tr>
+      <th>Data</th><th>Sessão</th><th>Km</th><th>Ritmo</th><th>FC</th>
+      <th>Pot.</th><th>TE aer.</th><th>Foco</th><th>Sono anterior</th><th>Carga</th>
+    </tr></thead>
+    <tbody>${últimos.map(t=>{
+      const c=corosBy[t.data]||{};
+      const noite=saudeBy[t.data];
+      const sono=noite&&noite.total?Math.floor(noite.total/60)+'h'+String(Math.round(noite.total%60)).padStart(2,'0'):'—';
+      const p=t.dist&&t.seg?pace(t.seg/t.dist):'—';
+      return `<tr>
+        <td class="num">${shortDate(t.data)}</td>
+        <td><span class="tag ${cls(t.cat)}">${t.cat||'—'}</span></td>
+        <td class="num">${fmt(t.dist,2)}</td>
+        <td class="num">${p}</td>
+        <td class="num">${t.fc??'—'}</td>
+        <td class="num">${c.pot??'—'}</td>
+        <td class="num">${c.te!==undefined&&c.te!==null?fmt(c.te,1):'—'}</td>
+        <td>${c.foco||'—'}</td>
+        <td class="num">${sono}</td>
+        <td class="num">${t.carga||'—'}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+  document.getElementById('tbl').innerHTML=html;
+}
+
+document.getElementById('reload').addEventListener('click',load);
+load();
+</script>
+</body>
+</html>
