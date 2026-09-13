@@ -153,6 +153,18 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
 <div class="pane" id="p-tend">
   <div class="fil" id="filtros"></div>
   <div class="card">
+    <div class="ttl">📈 Evolução por categoria</div>
+    <div class="fil" id="filEvo"></div>
+    <label class="lim" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 2px;cursor:pointer">
+      <input type="checkbox" id="chkLimpo" checked style="accent-color:#2dd4a0"> só leituras limpas
+    </label>
+    <div class="grid g4" id="evoResumo" style="margin:10px 0"></div>
+    <div class="ch"><canvas id="cEvo1"></canvas></div>
+    <p class="note" id="nEvo1"></p>
+    <div class="ch sm"><canvas id="cEvo2"></canvas></div>
+    <p class="note" id="nEvo2"></p>
+  </div>
+  <div class="card">
     <div class="ttl">📈 Eficiência aeróbica — está a resultar?</div>
     <div class="ch"><canvas id="cEF"></canvas></div>
     <p class="note" id="nEF"></p>
