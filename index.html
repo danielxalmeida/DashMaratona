@@ -108,6 +108,7 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
     text-align:center;line-height:1.15;padding:2px}
 .empty{color:var(--mut);font-size:13px;padding:10px 0}
 .src{font-size:9px;font-weight:600;letter-spacing:.06em;color:var(--mut);text-transform:uppercase}
+.lim{font-size:12.5px;color:var(--mut)}
 .src.c{color:#2dd4a0}
 .grid.g4{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
 .dual{display:flex;gap:8px;align-items:baseline}
@@ -271,6 +272,19 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
   </div>
 
   <div class="card">
+    <div class="ttl">📈 Evolução por categoria</div>
+    <div class="fil" id="filEvo"></div>
+    <label class="lim" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 2px;cursor:pointer">
+      <input type="checkbox" id="chkLimpo" checked style="accent-color:#2dd4a0"> só leituras limpas
+    </label>
+    <div class="grid g4" id="evoResumo" style="margin:10px 0"></div>
+    <div class="ch"><canvas id="cEvo1"></canvas></div>
+    <p class="note" id="nEvo1"></p>
+    <div class="ch sm"><canvas id="cEvo2"></canvas></div>
+    <p class="note" id="nEvo2"></p>
+  </div>
+
+  <div class="card">
     <div class="ttl">📋 Diário de saúde</div>
     <div class="scr" style="max-height:55vh;overflow-y:auto">
       <table><thead><tr><th>Data</th><th>Score</th><th>Passos</th><th>Stress</th><th>Sono</th><th>Prof.</th><th>REM</th><th>HRV</th><th>Base</th><th>Estado</th><th>FC rep.</th></tr></thead>
@@ -287,7 +301,7 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
 const API = 'https://script.google.com/macros/s/AKfycbyEcE18WIygl-QURSbNAHiyFM9cymystSIXrzeNxJHW5yeCcHZI7EekL_9GWVGaTZQsHA/exec';
 const GC='rgba(255,255,255,.06)', TC='rgba(255,255,255,.5)';
 
-let D={}, charts={}, filtro=42, filCat='Todas', filTipo='Todas';
+let D={}, charts={}, filtro=42, filCat='Todas', filTipo='Todas', evoCat='Leve', evoLimpo=true;
 
 /* ══════════ PARSERS ══════════ */
 function pDate(v){
@@ -820,7 +834,11 @@ function corosTreinos(){
     fc:pNum(r.FC_media), cad:pNum(r.Cadencia_spm), passada:pNum(r.Passada_m),
     pot:pNum(r.Potencia_W), carga:pNum(r.Carga_COROS),
     teA:pNum(r.TE_aerobio), teAn:pNum(r.TE_anaerobio),
-    foco:r.Training_Focus||'', perf:r.Performance||''
+    foco:r.Training_Focus||'', perf:r.Performance||'',
+    ef:pNum(r.EF), conf:r.EF_confundidor||'',
+    contacto:pNum(r.Contacto_ms), wbpm:pNum(r.Potencia_FC),
+    wDelta:pNum(r.Potencia_FC_delta_pct),
+    temp:pNum(r.Temperatura_C)
   })).filter(x=>x.d).sort((a,b)=>a.d-b.d);
 }
 function corosCarga(){
@@ -948,6 +966,9 @@ function coros(){
       <td><span class="bg ${corPerf(t.perf)}">${t.perf||'—'}</span></td></tr>`;
   }).join('')||'<tr><td colspan="9" class="empty">Sem treinos COROS.</td></tr>';
 
+  /* ---- evolução por categoria ---- */
+  evolucao(TR);
+
   /* ---- diário ---- */
   document.getElementById('tCorosSaude').innerHTML=S.slice().reverse().map(s=>{
     const baixa=s.hrv!=null&&s.hrvMin!=null&&s.hrv<s.hrvMin;
@@ -964,6 +985,123 @@ function coros(){
       <td style="font-size:11.5px">${s.hrvEst||'—'}</td>
       <td>${s.fcRep??'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="11" class="empty">Sem diário.</td></tr>';
+}
+
+/* ══════════ EVOLUÇÃO POR CATEGORIA ══════════ */
+// Cruza Treinos_COROS com a categoria da aba Treinos, pela data.
+// O filtro "só leituras limpas" usa a coluna EF_confundidor: vazia = limpa.
+function evolucao(TR){
+  const host=document.getElementById('filEvo');
+  if(!host) return;
+
+  // categoria vem da aba Treinos; Treinos_COROS não a guarda
+  const catPorDia={};
+  T('_treinos').forEach(r=>{ if(r.iso&&r.cat) catPorDia[r.iso]=r.cat; });
+
+  const base=TR.map(t=>({...t, cat:catPorDia[t.iso]||''}))
+               .filter(t=>t.cat);
+
+  const cats=['Leve','Longo','Qualidade'];
+  host.innerHTML=cats.map(c=>{
+    const n=base.filter(t=>t.cat===c).length;
+    return `<button class="chip ${evoCat===c?'on':''}" data-c="${c}">${c} <span style="opacity:.6">${n}</span></button>`;
+  }).join('');
+  host.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{evoCat=b.dataset.c;coros();});
+  const chk=document.getElementById('chkLimpo');
+  if(chk){ chk.checked=evoLimpo; chk.onchange=()=>{evoLimpo=chk.checked;coros();}; }
+
+  let L=base.filter(t=>t.cat===evoCat).sort((a,b)=>a.d-b.d);
+  const total=L.length;
+  if(evoLimpo) L=L.filter(t=>!t.conf||!String(t.conf).trim());
+
+  const n1=document.getElementById('nEvo1'), n2=document.getElementById('nEvo2');
+  const r=document.getElementById('evoResumo');
+
+  if(L.length<2){
+    ['cEvo1','cEvo2'].forEach(id=>{ if(charts[id]){charts[id].destroy();delete charts[id];} });
+    r.innerHTML='';
+    n1.textContent=`Apenas ${L.length} de ${total} sessões ${evoCat.toLowerCase()} passam o filtro — poucas para traçar tendência.`;
+    n2.textContent='';
+    return;
+  }
+
+  // --- cartões de resumo: primeira metade vs segunda metade ---
+  const meio=Math.floor(L.length/2);
+  const med=(arr,f)=>{const v=arr.map(f).filter(x=>x!=null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+  const delta=(a,b)=>a!=null&&b!=null&&a!==0?((b-a)/a*100):null;
+  const A=L.slice(0,meio), B=L.slice(meio);
+
+  const metricas=[
+    {k:'ef',  l:'EF',            f:t=>t.ef,       d:3, bom:1},
+    {k:'wbpm',l:'W/bpm',         f:t=>t.wbpm,     d:3, bom:1},
+    {k:'fc',  l:'FC média',      f:t=>t.fc,       d:0, bom:-1},
+    {k:'gct', l:'Contacto (ms)', f:t=>t.contacto, d:0, bom:-1},
+    {k:'ret', l:'Retenção %',    f:t=>t.wDelta,   d:2, bom:1},
+    {k:'km',  l:'Volume (km)',   f:t=>t.km,       d:1, bom:0}
+  ].filter(m=>{
+    if(m.k==='ef'&&evoCat==='Qualidade') return false;   // EF não é comparável em qualidade
+    if(m.k==='ret'&&evoCat==='Leve') return false;       // leves não têm blocos
+    return L.some(t=>m.f(t)!=null);
+  });
+
+  r.innerHTML=metricas.map(m=>{
+    const a=med(A,m.f), b=med(B,m.f), p=delta(a,b);
+    const sinal=p==null?'':(m.bom===0?'':(p*m.bom>0?'ok':'aten'));
+    return `<div class="met ${sinal}"><div class="ml">${m.l}</div>
+      <div class="mv">${b==null?'—':b.toFixed(m.d).replace('.',',')}</div>
+      <div class="delta">${p==null?'—':(p>0?'+':'')+p.toFixed(1).replace('.',',')+'% vs 1ª metade'}</div></div>`;
+  }).join('');
+
+  const labs=L.map(t=>curto(t.d));
+  const cor=evoCat==='Leve'?'#2dd4a0':evoCat==='Longo'?'#fbbf24':'#a78bfa';
+
+  // linha de tendência (regressão linear simples)
+  const tend=(vals)=>{
+    const pts=vals.map((v,i)=>[i,v]).filter(p=>p[1]!=null&&!isNaN(p[1]));
+    if(pts.length<2) return vals.map(()=>null);
+    const n=pts.length, sx=pts.reduce((s,p)=>s+p[0],0), sy=pts.reduce((s,p)=>s+p[1],0);
+    const sxy=pts.reduce((s,p)=>s+p[0]*p[1],0), sxx=pts.reduce((s,p)=>s+p[0]*p[0],0);
+    const m=(n*sxy-sx*sy)/(n*sxx-sx*sx||1), b=(sy-m*sx)/n;
+    return vals.map((_,i)=>+(m*i+b).toFixed(4));
+  };
+
+  /* gráfico 1: eficiência (EF ou W/bpm) + FC */
+  const usaEF = evoCat!=='Qualidade';
+  const serie = L.map(t=>usaEF?t.ef:t.wbpm);
+  novo('cEvo1',{data:{labels:labs,datasets:[
+    {type:'line',label:usaEF?'EF':'W/bpm',data:serie,borderColor:cor,borderWidth:2.5,
+     pointRadius:3,pointBackgroundColor:cor,tension:.25,spanGaps:true,yAxisID:'y'},
+    {type:'line',label:'tendência',data:tend(serie),borderColor:cor,borderWidth:1.5,
+     borderDash:[6,4],pointRadius:0,yAxisID:'y'},
+    {type:'line',label:'FC média',data:L.map(t=>t.fc),borderColor:'#f04b5a',borderWidth:1.5,
+     pointRadius:2,tension:.25,spanGaps:true,yAxisID:'y2'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}},
+      tooltip:{callbacks:{afterBody:c=>{const t=L[c[0].dataIndex];
+        return [`${t.nome}`,`${t.km} km · ${t.paceM}/km`,t.conf?`confundidor: ${t.conf}`:'leitura limpa'];}}}},
+    scales:{x:eixoX,
+      y:{position:'left',ticks:{color:cor,font:{size:10}},grid:{color:GC}},
+      y2:{position:'right',ticks:{color:'#f04b5a',font:{size:10}},grid:{display:false}}}}});
+
+  /* gráfico 2: mecânica + volume */
+  novo('cEvo2',{data:{labels:labs,datasets:[
+    {type:'bar',label:'km',data:L.map(t=>t.km),backgroundColor:'#4f8ef744',yAxisID:'y2'},
+    {type:'line',label:'Contacto (ms)',data:L.map(t=>t.contacto),borderColor:'#38bdf8',
+     borderWidth:2,pointRadius:2,tension:.25,spanGaps:true,yAxisID:'y'},
+    {type:'line',label:'Cadência',data:L.map(t=>t.cad),borderColor:'#a78bfa',borderWidth:1.5,
+     borderDash:[4,3],pointRadius:2,tension:.25,spanGaps:true,yAxisID:'y3'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}}},
+    scales:{x:eixoX,y:{position:'left',ticks:{color:'#38bdf8',font:{size:10}},grid:{color:GC}},
+      y2:{position:'right',ticks:{color:TC,font:{size:10}},grid:{display:false}},
+      y3:{display:false}}}});
+
+  const excl=total-L.length;
+  n1.textContent=`${L.length} sessões ${evoCat.toLowerCase()}`
+    +(excl>0?`, ${excl} excluídas por confundidor`:'')
+    +`. ${usaEF?'EF = metros por minuto por batimento.':'W/bpm nas repetições — a EF não é comparável em sessões de qualidade porque a FC média mistura trabalho e recuperação.'}`
+    +' A tracejado, a tendência linear.';
+  n2.textContent='Contacto ao solo e cadência das partes trabalhadas. Contacto a descer com cadência estável indica mecânica a melhorar.';
 }
 
 /* ══════════ SEPARADORES ══════════ */
