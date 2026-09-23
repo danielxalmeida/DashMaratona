@@ -153,6 +153,12 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
 <div class="pane" id="p-tend">
   <div class="fil" id="filtros"></div>
   <div class="card">
+    <div class="ttl">⏱ Pace a 150 bpm — mais rápido ao mesmo esforço?</div>
+    <div id="p150Box"></div>
+    <div class="ch"><canvas id="cP150"></canvas></div>
+    <p class="note" id="nP150"></p>
+  </div>
+    <div class="card">
     <div class="ttl">📈 Evolução por categoria</div>
     <div class="fil" id="filEvo"></div>
     <label class="lim" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 2px;cursor:pointer">
@@ -279,7 +285,7 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
 
   <div class="card">
     <div class="ttl">🏃 Treinos com métricas COROS</div>
-    <div class="scr"><table><thead><tr><th>Data</th><th>Sessão</th><th>Pace<br><span class="src">Nossa</span></th><th>Pace aj.<br><span class="src">COROS</span></th><th>Pot.</th><th>TE aer.</th><th>TE anaer.</th><th>Foco</th><th>Performance</th></tr></thead>
+    <div class="scr"><table><thead><tr><th>Data</th><th>Sessão</th><th>Pace<br><span class="src">Nossa</span></th><th>Pace aj.<br><span class="src">COROS</span></th><th>Pot.</th><th>Temp.</th><th>TE aer.</th><th>TE anaer.</th><th>Foco</th><th>Performance</th></tr></thead>
     <tbody id="tCorosTr"></tbody></table></div>
   </div>
 
@@ -423,9 +429,11 @@ function carga(refDate){
           km7:jan(7).reduce((s,r)=>s+(r.km||0),0), ref, semTreino,
           nivel: ewma>cr?'crit' : ewma>at?'aten' : 'ok'};
 }
+// passadeira: o pace da passadeira nao bate certo com a FC, fica fora das metricas de eficiencia
+const indoor=r=>/passadeira|esteira/i.test((r.nota||'')+' '+(r.nome||''));
 function serieEF(){
-  // só treinos comparáveis: leves e longos, com FC
-  return T('_treinos').filter(r=>r.ef&&['Leve','Longo'].includes(r.cat))
+  // só treinos comparáveis: leves e longos, com FC, no exterior
+  return T('_treinos').filter(r=>r.ef&&['Leve','Longo'].includes(r.cat)&&!indoor(r))
                       .sort((a,b)=>a.d-b.d);
 }
 function media(arr,janela){
@@ -489,7 +497,7 @@ async function load(){
 function render(){
   const passos=[subtitulo,topo,seletorDia,filtros,timeline,todos,
                 calendario,aderencia,previsoes,zonasRitmos,recordes,
-                chartEF,chartCarga,chartVol,coros];
+                chartP150,chartEF,chartCarga,chartVol,coros];
   passos.forEach(f=>{try{f();}catch(e){console.error(f.name,e);}});
 }
 
@@ -583,6 +591,53 @@ function novo(id,cfg){ if(charts[id])charts[id].destroy();
   charts[id]=new Chart(document.getElementById(id),cfg); }
 const eixoX={ticks:{color:TC,font:{size:9},maxRotation:55,autoSkip:true,maxTicksLimit:12},grid:{display:false}};
 
+/* ══════════ PACE A 150 BPM ══════════ */
+// Converte cada leve/longo no exterior para o pace que teria a 150 bpm:
+// pace150 = pace x FC/150. So entram sessoes entre 138 e 160 bpm, onde a
+// correcao e pequena. Mostra o ano inteiro, independente do filtro de janela.
+function chartP150(){
+  const temp={}; corosTreinos().forEach(c=>{ if(c.temp!=null) temp[c.iso]=c.temp; });
+  const S=T('_treinos').filter(r=>['Leve','Longo'].includes(r.cat)&&r.pace&&r.fc>=138&&r.fc<=160&&!indoor(r))
+    .map(r=>({r,x:r.d.getTime(),y:r.pace*r.fc/150,t:temp[r.iso]??null,
+      q:/calor|vento|doac|serra|desn/i.test(r.nota+' '+r.nome)||(temp[r.iso]??0)>=25}))
+    .sort((a,b)=>a.x-b.x);
+  const box=document.getElementById('p150Box'), nt=document.getElementById('nP150');
+  if(S.length<3){ box.innerHTML=''; nt.textContent='Poucas sessões com FC entre 138 e 160 bpm.'; return; }
+  const med=a=>{a=[...a].sort((p,q)=>p-q);const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2;};
+  const linha=S.map(p=>({x:p.x,y:med(S.filter(q=>q.x<=p.x&&q.x>p.x-30*864e5).map(q=>q.y))}));
+  const ref=S.filter(p=>p.r.d<Date.UTC(2026,5,1)).map(p=>p.y);          // primavera: ate maio
+  const fim=S[S.length-1].x, rec=S.filter(p=>p.x>fim-30*864e5).map(p=>p.y);
+  if(ref.length&&rec.length){
+    const a=med(ref), b=med(rec), d=Math.round(b-a);
+    box.innerHTML=`<div class="grid g4" style="margin-bottom:12px">
+      <div class="met"><div class="ml">Primavera (até maio)</div><div class="mv">${pace(a)}</div><div class="ms">mediana de ${ref.length} sessões</div></div>
+      <div class="met ${d<0?'ok':'aten'}"><div class="ml">Últimos 30 dias</div><div class="mv">${pace(b)}</div><div class="ms">mediana de ${rec.length} sessões</div></div>
+      <div class="met ${d<0?'ok':'aten'}"><div class="ml">Diferença</div><div class="mv" style="color:${d<0?'var(--green)':'var(--orange)'}">${d>0?'+':''}${d} s/km</div><div class="ms">${d<0?'mais rápido':'mais lento'} ao mesmo batimento</div></div></div>`;
+  }
+  const MS=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const x0=S[0].x-7*864e5, x1=Math.max(fim,hoje().getTime())+7*864e5;
+  const ys=S.map(p=>p.y), lo=Math.floor((Math.min(...ys)-5)/10)*10, hi=Math.ceil((Math.max(...ys)+5)/10)*10;
+  const cor=p=>p.q?'#f04b5a':'#38bdf8';
+  const pts=cat=>S.filter(p=>p.r.cat===cat);
+  novo('cP150',{type:'scatter',data:{datasets:[
+    {label:'Leve',data:pts('Leve'),pointRadius:4,pointBackgroundColor:pts('Leve').map(cor),pointBorderWidth:0},
+    {label:'Longo',data:pts('Longo'),pointRadius:6,pointStyle:'rectRot',pointBackgroundColor:pts('Longo').map(cor),pointBorderWidth:0},
+    {label:'Mediana 30 dias',data:linha,type:'line',borderColor:'#2dd4a0',borderWidth:2.5,pointRadius:0,tension:.35}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:11},boxWidth:10,usePointStyle:true}},
+      tooltip:{callbacks:{title:c=>{const p=c[0].raw;return p.r?`${curto(p.r.d)} — ${p.r.nome}`:curto(new Date(p.x));},
+        label:c=>{const p=c.raw;if(!p.r) return 'mediana 30 d: '+pace(p.y)+'/km';
+          return [`a 150 bpm: ${pace(p.y)}/km`,`real: ${pace(p.r.pace)}/km · FC ${p.r.fc} · ${p.r.km} km`]
+            .concat(p.t!=null?[`${p.t} °C`]:[]);}}}},
+    scales:{x:{type:'linear',min:x0,max:x1,grid:{display:false},
+        afterBuildTicks:a=>{const t=[];const d0=new Date(x0);for(let d=Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth()+1,1);d<=x1;){t.push({value:d});const n=new Date(d);d=Date.UTC(n.getUTCFullYear(),n.getUTCMonth()+1,1);}a.ticks=t;},
+        ticks:{color:TC,font:{size:10},callback:v=>MS[new Date(v).getUTCMonth()]}},
+      y:{reverse:true,min:lo,max:hi,ticks:{color:TC,font:{size:10},stepSize:10,callback:v=>pace(v)},grid:{color:GC},
+        title:{display:true,text:'pace a 150 bpm (para cima = mais rápido)',color:TC,font:{size:10}}}}}});
+  nt.textContent=`${S.length} leves e longos no exterior com FC entre 138 e 160 bpm, ano inteiro (não segue o filtro). `+
+    'pace150 = pace × FC ÷ 150. Vermelho: calor ≥25 °C, vento, serra ou desnível. A passadeira fica de fora.';
+}
+
 function chartEF(){
   const jan=Pn('tendencia_janela_dias',21);
   const S=serieEF().filter(r=>r.d>=janela());
@@ -648,7 +703,7 @@ function chartVol(){
   document.getElementById('nVol').textContent=`${R.length} sessões na janela. A linha de EF só marca leves e longos — nas sessões de qualidade a FC média mistura repetições e recuperações, e o valor não seria comparável.`;
   // EF só existe em leves e longos; nas outras sessões fica a null e a linha
   // salta por cima (spanGaps), em vez de desenhar um valor sem significado.
-  const efPts=R.map(r=>(r.ef&&['Leve','Longo'].includes(r.cat))?+r.ef.toFixed(3):null);
+  const efPts=R.map(r=>(r.ef&&['Leve','Longo'].includes(r.cat)&&!indoor(r))?+r.ef.toFixed(3):null);
   novo('cVol',{data:{labels:R.map(r=>curto(r.d)),datasets:[
     {type:'bar',label:'km',data:R.map(r=>r.km||0),backgroundColor:'#4f8ef766',yAxisID:'y'},
     {type:'line',label:'Pace',data:R.map(r=>r.pace?r.pace/60:null),borderColor:'#2dd4a0',
@@ -973,10 +1028,11 @@ function coros(){
       <td class="nw">${n?pace(n.pace):'—'}</td>
       <td class="nw" style="color:#2dd4a0">${t.paceAj||'—'}</td>
       <td>${t.pot??'—'}${t.pot!=null?' W':''}</td>
+      <td class="nw">${t.temp!=null?t.temp+' °C':'—'}</td>
       <td>${t.teA??'—'}</td><td>${t.teAn??'—'}</td>
       <td class="nw">${t.foco||'—'}</td>
       <td><span class="bg ${corPerf(t.perf)}">${t.perf||'—'}</span></td></tr>`;
-  }).join('')||'<tr><td colspan="9" class="empty">Sem treinos COROS.</td></tr>';
+  }).join('')||'<tr><td colspan="10" class="empty">Sem treinos COROS.</td></tr>';
 
   /* ---- evolução por categoria ---- */
   evolucao(TR);
@@ -1090,7 +1146,7 @@ function evolucao(TR){
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}},
       tooltip:{callbacks:{afterBody:c=>{const t=L[c[0].dataIndex];
-        return [`${t.nome}`,`${t.km} km · ${t.paceM}/km`,t.conf?`confundidor: ${t.conf}`:'leitura limpa'];}}}},
+        return [`${t.nome}`,`${t.km} km · ${t.paceM}/km`+(t.temp!=null?` · ${t.temp} °C`:''),t.conf?`confundidor: ${t.conf}`:'leitura limpa'];}}}},
     scales:{x:eixoX,
       y:{position:'left',ticks:{color:cor,font:{size:10}},grid:{color:GC}},
       y2:{position:'right',ticks:{color:'#f04b5a',font:{size:10}},grid:{display:false}}}}});
