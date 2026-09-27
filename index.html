@@ -134,6 +134,7 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
 <div class="tabs" id="tabs">
   <button class="tab on" data-t="dia">Dia</button>
   <button class="tab" data-t="tend">Tendências</button>
+  <button class="tab" data-t="rfc">Ritmo-FC</button>
   <button class="tab" data-t="prev">Previsão</button>
   <button class="tab" data-t="plano">Plano</button>
   <button class="tab" data-t="zonas">Zonas &amp; Ritmos</button>
@@ -158,18 +159,6 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
     <div class="ch"><canvas id="cP150"></canvas></div>
     <p class="note" id="nP150"></p>
   </div>
-    <div class="card">
-    <div class="ttl">📈 Evolução por categoria</div>
-    <div class="fil" id="filEvo"></div>
-    <label class="lim" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 2px;cursor:pointer">
-      <input type="checkbox" id="chkLimpo" checked style="accent-color:#2dd4a0"> só leituras limpas
-    </label>
-    <div class="grid g4" id="evoResumo" style="margin:10px 0"></div>
-    <div class="ch"><canvas id="cEvo1"></canvas></div>
-    <p class="note" id="nEvo1"></p>
-    <div class="ch sm"><canvas id="cEvo2"></canvas></div>
-    <p class="note" id="nEvo2"></p>
-  </div>
   <div class="card">
     <div class="ttl">📈 Eficiência aeróbica — está a resultar?</div>
     <div class="ch"><canvas id="cEF"></canvas></div>
@@ -186,6 +175,29 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
     <div class="ch"><canvas id="cVol"></canvas></div>
     <p class="note" id="nVol"></p>
   </div>
+</div>
+
+<div class="pane" id="p-rfc">
+  <div class="fil" id="filRfc"></div>
+  <div id="rfcAviso"></div>
+  <div class="grid g4" id="rfcTopo" style="margin-bottom:14px"></div>
+  <div class="card">
+    <div class="ttl">📐 Curva ritmo–FC — está a deslocar-se?</div>
+    <div class="ch sm"><canvas id="cRfcCurva"></canvas></div>
+    <p class="note" id="nRfcCurva"></p>
+  </div>
+  <div class="card">
+    <div class="ttl">🏁 Ritmos de prova na curva atual</div>
+    <div class="scr"><table><thead><tr><th>Objetivo</th><th>Ritmo</th><th>FC na curva</th></tr></thead><tbody id="tRfcProva"></tbody></table></div>
+    <p class="note">Curva medida em treino. Em prova, com fresco e taper, o mesmo ritmo sai com menos batimentos. Maratona: tipicamente 85-90% da FC máxima.</p>
+  </div>
+  <div class="grid g-2">
+    <div class="card"><div class="ttl">140 bpm · conversa</div><div class="ch sm"><canvas id="cR140"></canvas></div></div>
+    <div class="card"><div class="ttl">150 bpm · leve e longo</div><div class="ch sm"><canvas id="cR150"></canvas></div></div>
+    <div class="card"><div class="ttl">160 bpm · maratona</div><div class="ch sm"><canvas id="cR160"></canvas></div></div>
+    <div class="card"><div class="ttl">170 bpm · limiar e meia</div><div class="ch sm"><canvas id="cR170"></canvas></div></div>
+  </div>
+  <p class="note" id="nRfc"></p>
 </div>
 
 <div class="pane" id="p-prev">
@@ -497,7 +509,7 @@ async function load(){
 function render(){
   const passos=[subtitulo,topo,seletorDia,filtros,timeline,todos,
                 calendario,aderencia,previsoes,zonasRitmos,recordes,
-                chartP150,chartEF,chartCarga,chartVol,coros];
+                chartP150,chartEF,chartCarga,chartVol,coros,ritmoFC];
   passos.forEach(f=>{try{f();}catch(e){console.error(f.name,e);}});
 }
 
@@ -1170,6 +1182,80 @@ function evolucao(TR){
     +`. ${usaEF?'EF = metros por minuto por batimento.':'W/bpm nas repetições — a EF não é comparável em sessões de qualidade porque a FC média mistura trabalho e recuperação.'}`
     +' A tracejado, a tendência linear.';
   n2.textContent='Contacto ao solo e cadência das partes trabalhadas. Contacto a descer com cadência estável indica mecânica a melhorar.';
+}
+
+/* ══════════ RITMO-FC ══════════ */
+// Aba Pace_FC: por treino, pace mediano dos km estaveis a 140/150/160/170 bpm (+-5).
+// Horizonte H: referencia = 45 dias que terminam ha H dias; atual = ultimos 30 dias.
+let rfcH=90;
+const RFC_HR=[140,150,160,170];
+function ritmoFC(){
+  const host=document.getElementById('filRfc');
+  host.innerHTML=[30,60,90,180].map(h=>`<button class="chip ${rfcH===h?'on':''}" data-h="${h}">${h} dias</button>`).join('');
+  host.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{rfcH=+b.dataset.h;ritmoFC();});
+  const L=T('Pace_FC').map(r=>{const d=pDate(r.Data);const o={d,iso:iso(d),km:pNum(r.Distancia_km),v:{}};
+    RFC_HR.forEach(h=>{const p=pTime(r['P'+h]),n=pNum(r['N'+h]);if(p) o.v[h]={p,n:n||1};});return o;})
+    .filter(o=>o.d).sort((a,b)=>a.d-b.d);
+  const av=document.getElementById('rfcAviso');
+  if(!L.length){av.innerHTML='<div class="card aten"><div class="ttl">Sem dados Pace_FC</div><p style="font-size:13.5px">A aba <strong>Pace_FC</strong> não chega por este endpoint. Confirma que o Apps Script exporta todas as abas.</p></div>';return;}
+  av.innerHTML='';
+  const med=a=>{a=[...a].sort((p,q)=>p-q);const m=a.length>>1;return a.length?(a.length%2?a[m]:(a[m-1]+a[m])/2):null;};
+  const agora=hoje().getTime(), D=864e5;
+  const ini=agora-(rfcH+45)*D, refA=agora-(rfcH+45)*D, refB=agora-rfcH*D, recA=agora-30*D;
+  const val=(h,a,b)=>med(L.filter(o=>o.v[h]&&o.d.getTime()>a&&o.d.getTime()<=b).map(o=>o.v[h].p));
+  const cnt=(h,a,b)=>L.filter(o=>o.v[h]&&o.d.getTime()>a&&o.d.getTime()<=b).length;
+  const nome={140:'conversa',150:'leve e longo',160:'maratona',170:'limiar e meia'};
+  document.getElementById('rfcTopo').innerHTML=RFC_HR.map(h=>{
+    const a=val(h,refA,refB), b=val(h,recA,agora), na=cnt(h,refA,refB), nb=cnt(h,recA,agora);
+    if(a==null||b==null) return `<div class="met"><div class="ml">${h} bpm · ${nome[h]}</div><div class="mv">—</div><div class="ms">${b!=null?'agora '+pace(b):'sem dados'} · referência sem treinos</div></div>`;
+    const pouco=na<4||nb<4, d=Math.round(b-a), cls=pouco?'':(d<0?'ok':'aten');
+    return `<div class="met ${cls}"><div class="ml">${h} bpm · ${nome[h]}</div>
+      <div class="mv" style="color:${d<0?'var(--green)':'var(--orange)'}">${d>0?'+':''}${d} s/km</div>
+      <div class="ms">${pace(a)} → ${pace(b)}<br><span style="opacity:.65">${na} vs ${nb} treinos${pouco?' · poucos dados':''}</span></div></div>`;}).join('');
+  /* curva */
+  const ref=RFC_HR.map(h=>val(h,refA,refB)), cur=RFC_HR.map(h=>val(h,recA,agora));
+  novo('cRfcCurva',{type:'line',data:{labels:RFC_HR.map(h=>h+' bpm'),datasets:[
+    {label:`Há ${rfcH} dias`,data:ref,borderColor:'#7b80a0',borderDash:[5,4],borderWidth:2.5,pointRadius:4,spanGaps:true,tension:.25},
+    {label:'Últimos 30 dias',data:cur,borderColor:'#2dd4a0',borderWidth:3,pointRadius:5,spanGaps:true,tension:.25}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:TC,font:{size:11},boxWidth:12}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+pace(c.raw)+'/km'}}},
+      scales:{x:{ticks:{color:TC,font:{size:10}},grid:{display:false}},
+        y:{reverse:true,ticks:{color:TC,font:{size:10},callback:v=>pace(v)},grid:{color:GC},title:{display:true,text:'pace (para cima = mais rápido)',color:TC,font:{size:10}}}}}});
+  document.getElementById('nRfcCurva').textContent=`Referência: 45 dias que terminaram há ${rfcH} dias. Atual: últimos 30 dias. Mediana dos treinos em cada janela.`;
+  /* ritmos de prova */
+  const fcDe=p=>{const c=cur;for(let i=0;i<3;i++){const a=c[i],b=c[i+1];if(a!=null&&b!=null&&p<=a&&p>=b) return RFC_HR[i]+(a-p)/(a-b)*10;}
+    if(c[2]!=null&&c[3]!=null&&p<c[3]) return 170+(c[3]-p)/((c[2]-c[3])/10);   // extrapola acima de 170
+    return null;};
+  const provas=[['Ovar 1:38',279],['Algarve 3:27 (Plano A)',294],['Algarve 3:25 (previsão)',291],['Algarve 3:20 (Plano B)',284]];
+  document.getElementById('tRfcProva').innerHTML=provas.map(([n,p])=>{const f=fcDe(p);
+    return `<tr><td>${n}</td><td class="nw">${pace(p)}/km</td><td class="nw"><b>${f!=null?'~'+Math.round(f)+' bpm':'fora da curva'}</b></td></tr>`;}).join('');
+  /* quatro graficos */
+  const MS=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const alvo={160:[[294,'Plano A 4:54'],[284,'Plano B 4:44']],170:[[279,'Ovar 4:39']]};
+  RFC_HR.forEach(h=>{
+    const S=L.filter(o=>o.v[h]).map(o=>({x:o.d.getTime(),y:o.v[h].p,o}));
+    const V=S.filter(p=>p.x>ini);
+    const linha=V.map(p=>({x:p.x,y:med(S.filter(q=>q.x<=p.x&&q.x>p.x-30*D).map(q=>q.y))}));
+    const ys=V.map(p=>p.y).concat((alvo[h]||[]).map(a=>a[0]));
+    const lo=ys.length?Math.floor((Math.min(...ys)-6)/15)*15:240, hi=ys.length?Math.ceil((Math.max(...ys)+6)/15)*15:420;
+    const ds=[{label:'treino',data:V,pointRadius:V.map(p=>3+Math.min(4,p.o.v[h].n)),
+        pointBackgroundColor:V.map(p=>p.x<=refB?'#7b80a0':'#38bdf8'),pointBorderWidth:0},
+      {label:'mediana 30 d',data:linha,type:'line',borderColor:'#2dd4a0',borderWidth:2.5,pointRadius:0,tension:.35}];
+    (alvo[h]||[]).forEach(([v,l])=>ds.push({label:l,data:[{x:ini,y:v},{x:agora,y:v}],type:'line',borderColor:'#f59e42',borderDash:[4,4],borderWidth:1.2,pointRadius:0}));
+    novo('cR'+h,{type:'scatter',data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:!!alvo[h],labels:{color:TC,font:{size:10},boxWidth:10,filter:i=>i.datasetIndex>1}},
+        tooltip:{callbacks:{title:c=>{const o=c[0].raw.o;return o?curto(o.d)+(o.km?` · ${o.km} km`:''):'';},
+          label:c=>{const o=c.raw.o;return o?`${pace(c.raw.y)}/km a ${h} bpm (${o.v[h].n} km)`:c.dataset.label+': '+pace(c.raw.y);}}}},
+      scales:{x:{type:'linear',min:ini,max:agora+2*D,grid:{display:false},
+          afterBuildTicks:a=>{const t=[];const d0=new Date(ini);const passo=rfcH<=60?7:30;
+            if(passo===7){for(let d=ini;d<=agora;d+=7*D)t.push({value:d});}
+            else{for(let d=Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth()+1,1);d<=agora;){t.push({value:d});const n=new Date(d);d=Date.UTC(n.getUTCFullYear(),n.getUTCMonth()+1,1);}}
+            a.ticks=t;},
+          ticks:{color:TC,font:{size:10},callback:v=>rfcH<=60?curto(new Date(v)):MS[new Date(v).getUTCMonth()]}},
+        y:{reverse:true,min:lo,max:hi,ticks:{color:TC,font:{size:10},stepSize:15,callback:v=>pace(v)},grid:{color:GC}}}}});
+  });
+  document.getElementById('nRfc').textContent='Cada ponto é um treino: mediana dos seus km estáveis a essa FC (±5 bpm), tamanho = nº de km. '+
+    'Cinzento: janela de referência. Linha verde: mediana dos 30 dias anteriores. Km estáveis: depois dos primeiros 8 min, FC sem falhas e com variação <8 bpm, ritmo constante, desnível líquido ≤1%, sem paragens. Passadeira excluída.';
 }
 
 /* ══════════ SEPARADORES ══════════ */
