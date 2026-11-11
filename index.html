@@ -210,6 +210,14 @@ select{background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-ra
     <div class="card"><div class="ttl">170 bpm · limiar e meia</div><div class="ch sm"><canvas id="cR170"></canvas></div></div>
   </div>
   <p class="note" id="nRfc"></p>
+  <div class="card" style="margin-top:14px">
+    <div class="ttl">🔋 Durabilidade — quanto sobe a FC ao mesmo esforço?</div>
+    <div id="durAviso"></div>
+    <div class="ch sm"><canvas id="cDur"></canvas></div>
+    <div class="scr" style="margin-top:12px"><table><thead><tr><th>Data</th><th>Sessão</th><th>km</th><th>Banda W</th><th>1.º terço</th><th>2.º</th><th>3.º</th><th>Subida</th><th>Nota</th></tr></thead>
+    <tbody id="tDur"></tbody></table></div>
+    <p class="note">FC média a potência fixa (mediana ±10 W, depois dos 8 min) em cada terço da sessão. Quanto menos sobe, mais durável. Objetivo para o Algarve: menos de +10 bpm.</p>
+  </div>
 </div>
 
 <div class="pane" id="p-prev">
@@ -521,7 +529,7 @@ async function load(){
 function render(){
   const passos=[subtitulo,topo,seletorDia,filtros,timeline,todos,
                 calendario,aderencia,previsoes,zonasRitmos,recordes,
-                chartP150,chartEF,chartCarga,chartVol,coros,ritmoFC];
+                chartP150,chartEF,chartCarga,chartVol,coros,ritmoFC,durabilidade];
   passos.forEach(f=>{try{f();}catch(e){console.error(f.name,e);}});
 }
 
@@ -531,7 +539,7 @@ function subtitulo(){
   const alg=pDate(P('prova_algarve')), ova=pDate(P('prova_ovar'));
   const hoje=new Date();
   const dias=x=>x?Math.ceil((x-hoje)/864e5):null;
-  const bits=[`Semana ${w}/${tot}`];
+  const bits=[`Semana ${w}/${tot}`,'Plano (b) desde 19 Out'];
   if(dias(ova)>0) bits.push(`Ovar em ${dias(ova)}d`);
   if(dias(alg)>0) bits.push(`Algarve em ${dias(alg)}d`);
   document.getElementById('sub').textContent=bits.join(' · ');
@@ -539,7 +547,7 @@ function subtitulo(){
 
 function topo(){
   const c=carga();
-  const prev=[...T('Previsoes')].filter(p=>/algarve/i.test(p.Prova))
+  const prev=[...T('Previsoes')].filter(p=>/algarve/i.test(p.Prova)&&!/coros/i.test(p.Prova+' '+p.Modelo))
               .sort((a,b)=>String(b.Data).localeCompare(String(a.Data)))[0];
   const cls={crit:'crit',aten:'aten',ok:'ok'}[c.nivel];
   const cor={crit:'var(--red)',aten:'var(--orange)',ok:'var(--green)'}[c.nivel];
@@ -566,16 +574,29 @@ function topo(){
 
 function seletorDia(){
   const s=document.getElementById('sel');
-  const L=[...T('_treinos')].sort((a,b)=>b.iso.localeCompare(a.iso));
-  s.innerHTML=L.map(r=>`<option value="${r.iso}">${curto(r.d)} — ${r.nome} (${r.km??'?'}km)</option>`).join('');
+  // um item por DIA: dias com aquecimento + prova mostram tudo junto
+  const G={}; T('_treinos').forEach(r=>{(G[r.iso]=G[r.iso]||[]).push(r);});
+  const L=Object.keys(G).sort().reverse();
+  s.innerHTML=L.map(k=>{const a=G[k],km=a.reduce((t,r)=>t+(r.km||0),0);
+    const nome=a.length>1?(a.find(r=>r.cat==='Prova'||r.tipo==='Race')||a.reduce((x,y)=>(y.km||0)>(x.km||0)?y:x)).nome+` (+${a.length-1})`:a[0].nome;
+    return `<option value="${k}">${curto(a[0].d)} — ${nome} (${km.toFixed(1)}km)</option>`;}).join('');
   s.onchange=()=>dia(s.value);
-  if(L.length) dia(L[0].iso);
+  if(L.length) dia(L[0]);
 }
 function dia(k){
-  const r=T('_treinos').find(x=>x.iso===k);
+  const rs=T('_treinos').filter(x=>x.iso===k);
   const an=T('Analises').filter(a=>iso(pDate(a.Data))===k);
   const el=document.getElementById('dia');
-  if(!r){el.innerHTML='<p class="empty">Sem dados.</p>';return;}
+  if(!rs.length){el.innerHTML='<p class="empty">Sem dados.</p>';return;}
+  let out='';
+  if(rs.length>1){
+    const km=rs.reduce((t,r)=>t+(r.km||0),0), sg=rs.reduce((t,r)=>t+(r.seg||0),0), cg=rs.reduce((t,r)=>t+(r.carga||0),0);
+    out+=`<div class="box" style="border-left-color:var(--purple)"><strong>Dia completo:</strong> ${rs.length} atividades · ${km.toFixed(2)} km · ${clock(sg)} · carga ${cg}</div>`;
+  }
+  rs.forEach((r,ix)=>{out+=diaUm(r, ix===rs.length-1?an:[]);});
+  el.innerHTML=out;
+}
+function diaUm(r,an){
   const linha=(a,b)=>`<tr><td style="color:var(--mut)">${a}</td><td style="text-align:right">${b}</td></tr>`;
   let h=`<div class="box b" style="border-left-color:var(--blue)">
     <div style="font-weight:600;margin-bottom:9px">${pretty(r.d)} — ${r.nome} ${r.tipo==='Race'?'<span class="bg b-rd">Prova</span>':''} ${r.cat?`<span class="bg b-gy">${r.cat}</span>`:''}</div>
@@ -591,7 +612,7 @@ function dia(k){
     an.forEach(a=>{h+=`<div style="margin-bottom:9px">${bgCat(a.Categoria)} ${bgEst(a.Estado)}<br><span style="font-size:13px">${a.Descricao||''}</span></div>`;});
     h+='</div>';
   }
-  el.innerHTML=h+'</div>';
+  return h+'</div>';
 }
 const bgCat=c=>`<span class="bg ${({'Alerta':'b-rd','Previsao':'b-bl','Input Utilizador':'b-pu','Treino Falhado':'b-or','Avaliacao':'b-gy','Infraestrutura':'b-cy'})[c]||'b-gy'}">${c||'—'}</span>`;
 const bgEst=e=>`<span class="bg ${e==='Confirmado'?'b-gr':e==='Falhou'?'b-rd':'b-or'}">${e||'—'}</span>`;
@@ -774,7 +795,62 @@ function previsoes(){
 const bgConf=c=>`<span class="bg ${c==='Alta'?'b-gr':c==='Baixa'?'b-rd':'b-or'}">${c||'—'}</span>`;
 
 /* ══════════ CALENDÁRIO ══════════ */
+// Plano em vigor: aba Plano_COROS (uma linha por data). O Runna so conta ate 18 Out
+// (abandonado a 19 Out); depois disso, dia sem linha = sem plano.
+const FIM_RUNNA=Date.UTC(2026,9,19);
+function planoDia(d){
+  const k=iso(d);
+  const c=T('Plano_COROS').filter(r=>iso(pDate(r.Data))===k)
+    .sort((a,b)=>String(b.Data_leitura||'').localeCompare(String(a.Data_leitura||'')))[0];
+  if(c) return {txt:c.Sessao||'—', km:pNum(c.Distancia_km)||0, nota:c.Nota||'', fonte:'b'};
+  if(d.getTime()<FIM_RUNNA){
+    const ini=pDate(P('plano_inicio','2026-06-29')), n=Math.floor((d-ini)/(7*864e5))+1;
+    const w=T('Plano_Runna').find(x=>pNum(x.Semana)===n);
+    const col=['Dom','Seg','Ter','Qua','Qui','Sex','Sab'][d.getUTCDay()];
+    if(w) return {txt:w[col]||'—', km:null, nota:'', fonte:'r'};
+  }
+  return null;
+}
 function calendario(){
+  const hj=hoje(), seg=new Date(hj.getTime()-((hj.getUTCDay()+6)%7)*864e5);
+  const hojeISO=iso(hj);
+  const nomes=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+  let h='';
+  for(let k=-1;k<=2;k++){
+    const ini=new Date(seg.getTime()+k*7*864e5);
+    const dias=[...Array(7)].map((_,i)=>new Date(ini.getTime()+i*864e5));
+    const pl=dias.map(planoDia);
+    const prev=pl.reduce((t,p)=>t+(p&&p.km?p.km:0),0);
+    const badge = k===0?'<span class="bg b-bl">Esta semana</span>'
+                : k<0?'<span class="bg b-gy">Anterior</span>'
+                : '<span class="bg b-pu">Próxima</span>';
+    const fonte=pl.some(p=>p&&p.fonte==='b')?'Plano (b)':pl.some(p=>p&&p.fonte==='r')?'Runna':'sem plano registado';
+    h+=`<div class="wk"><div class="wkh">${badge}
+      <span class="wkt">${curto(ini)} – ${curto(dias[6])} · ${fonte}</span>
+      <span style="font-size:11.5px;color:var(--mut)">${prev?prev.toFixed(0)+' km previstos':''}</span></div>
+      <div class="grid g-day">`;
+    dias.forEach((dia,i)=>{
+      const dISO=iso(dia), p=pl[i], txt=p?p.txt:'—';
+      const feitos=T('_treinos').filter(r=>r.iso===dISO);
+      const kmF=feitos.reduce((t,r)=>t+(r.km||0),0);
+      const low=txt.toLowerCase();
+      let cls = /descanso/.test(low)&&!feitos.length ? 'r'
+              : /prova/.test(low) ? 'p'
+              : /longo/.test(low) ? 'l'
+              : /repeti|intervalo|ritmo|piramide|drop|variavei|progressiv|divisao|polimento|maximo|teste/.test(low) ? 'q' : '';
+      if(dISO===hojeISO) cls+=' today';
+      h+=`<div class="day ${cls}"><div class="dn">${nomes[i].slice(0,3)} ${curto(dia)}</div>
+        <div class="dc">${txt}</div>
+        ${feitos.length?`<div class="dd" style="color:var(--green)">✓ ${kmF.toFixed(1)}km${feitos.length>1?' ('+feitos.length+')':' · '+pace(feitos[0].pace)}</div>`
+                :(dia<hj&&p&&!/descanso|ginasio/.test(low)?'<div class="dd" style="color:var(--red)">✗ não registado</div>':'')}
+        ${p&&p.nota?`<div class="dd" style="color:var(--mut)">${p.nota}</div>`:''}
+      </div>`;
+    });
+    h+='</div></div>';
+  }
+  document.getElementById('cal').innerHTML=h;
+}
+function calendarioRunnaAntigo(){
   const atual=semanaAtual(), plano=T('Plano_Runna');
   const hojeISO=iso(new Date(Date.UTC(new Date().getFullYear(),new Date().getMonth(),new Date().getDate())));
   const cols=['Seg','Ter','Qua','Qui','Sex','Sab','Dom'];
@@ -820,20 +896,26 @@ function aderencia(){
     const n=pNum(w.Semana), [a,b]=semanaIntervalo(n);
     const real=T('_treinos').filter(r=>r.d>=a&&r.d<=new Date(b.getTime()+864e5-1))
                             .reduce((s,r)=>s+(r.km||0),0);
-    const prev=pNum(w.Volume_km)||0;
-    return {n, fase:w.Fase, prev, real, pct: prev>0?real/prev*100:0};
+    // depois de 19 Out o Runna foi abandonado: prescrito = soma do Plano_COROS dessa semana
+    let prev=pNum(w.Volume_km)||0, fase=w.Fase;
+    if(a.getTime()>=FIM_RUNNA-6*864e5){
+      const pb=[...Array(7)].map((_,i)=>planoDia(new Date(a.getTime()+i*864e5))).filter(p=>p&&p.fonte==='b');
+      if(pb.length){prev=pb.reduce((t,p)=>t+(p.km||0),0); fase='Plano (b)';}
+      else {prev=null; fase='Runna abandonado';}
+    }
+    return {n, fase, prev, real, pct: prev>0?real/prev*100:null};
   });
   document.getElementById('tAder').innerHTML=[...linhas].reverse().map(l=>{
-    const cls=l.pct>=95?'b-gr':l.pct>=80?'b-or':'b-rd';
+    const cls=l.pct==null?'b-gy':l.pct>=95?'b-gr':l.pct>=80?'b-or':'b-rd';
     return `<tr><td>${l.n}</td><td style="font-size:12px;color:var(--mut)">${l.fase}</td>
-      <td class="nw">${l.prev.toFixed(1)}km</td><td class="nw">${l.real.toFixed(1)}km</td>
-      <td><span class="bg ${cls}">${l.pct.toFixed(0)}%</span></td></tr>`;}).join('')
+      <td class="nw">${l.prev==null?'—':l.prev.toFixed(1)+'km'}</td><td class="nw">${l.real.toFixed(1)}km</td>
+      <td><span class="bg ${cls}">${l.pct==null?'—':l.pct.toFixed(0)+'%'}</span></td></tr>`;}).join('')
     ||'<tr><td colspan="5" class="empty">Sem dados.</td></tr>';
 
   novo('cAder',{data:{labels:linhas.map(l=>'S'+l.n),datasets:[
     {type:'bar',label:'Prescrito',data:linhas.map(l=>l.prev),backgroundColor:'#7b80a055'},
     {type:'bar',label:'Real',data:linhas.map(l=>l.real),
-     backgroundColor:linhas.map(l=>l.pct>=95?'#2dd4a0aa':l.pct>=80?'#f59e42aa':'#f04b5aaa')}
+     backgroundColor:linhas.map(l=>l.pct==null?'#7b80a0aa':l.pct>=95?'#2dd4a0aa':l.pct>=80?'#f59e42aa':'#f04b5aaa')}
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}}},
     scales:{x:eixoX,y:{ticks:{color:TC,font:{size:10}},grid:{color:GC},
@@ -1238,12 +1320,12 @@ function ritmoFC(){
   const fcDe=p=>{const c=cur;for(let i=0;i<3;i++){const a=c[i],b=c[i+1];if(a!=null&&b!=null&&p<=a&&p>=b) return RFC_HR[i]+(a-p)/(a-b)*10;}
     if(c[2]!=null&&c[3]!=null&&p<c[3]) return 170+(c[3]-p)/((c[2]-c[3])/10);   // extrapola acima de 170
     return null;};
-  const provas=[['Ovar 1:38',279],['Algarve 3:27 (Plano A)',294],['Algarve 3:25 (previsão)',291],['Algarve 3:20 (Plano B)',284]];
+  const provas=[['Algarve 3:45',320],['Algarve 3:35 (previsão 10 Nov)',306],['Algarve 3:30',299],['Algarve 3:25 (otimista)',291]];
   document.getElementById('tRfcProva').innerHTML=provas.map(([n,p])=>{const f=fcDe(p);
     return `<tr><td>${n}</td><td class="nw">${pace(p)}/km</td><td class="nw"><b>${f!=null?'~'+Math.round(f)+' bpm':'fora da curva'}</b></td></tr>`;}).join('');
   /* quatro graficos */
   const MS=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const alvo={160:[[294,'Plano A 4:54'],[284,'Plano B 4:44']],170:[[279,'Ovar 4:39']]};
+  const alvo={150:[[306,'3:35 · 5:06']],160:[[306,'3:35 · 5:06'],[291,'3:25 · 4:51']]};
   RFC_HR.forEach(h=>{
     const S=L.filter(o=>o.v[h]).map(o=>({x:o.d.getTime(),y:o.v[h].p,o}));
     const V=S.filter(p=>p.x>ini);
@@ -1268,6 +1350,29 @@ function ritmoFC(){
   });
   document.getElementById('nRfc').textContent='Cada ponto é um treino: mediana dos seus km estáveis a essa FC (±5 bpm), tamanho = nº de km. '+
     'Cinzento: janela de referência. Linha verde: mediana dos 30 dias anteriores. Km estáveis: depois dos primeiros 8 min, FC sem falhas e com variação <8 bpm, ritmo constante, desnível líquido ≤1%, sem paragens. Passadeira excluída.';
+}
+
+/* ══════════ DURABILIDADE ══════════ */
+function durabilidade(){
+  const L=T('Durabilidade').map(r=>({d:pDate(r.Data),sess:r.Sessao||'',km:r.Distancia_km||'',w:r.Banda_W||'',
+    t1:pNum(r.FC_T1),t2:pNum(r.FC_T2),t3:pNum(r.FC_T3),dl:pNum(r.Delta_bpm),nota:r.Nota||''}))
+    .filter(x=>x.d&&x.dl!=null).sort((a,b)=>a.d-b.d);
+  const av=document.getElementById('durAviso');
+  if(!L.length){av.innerHTML='<div class="box o">A aba <strong>Durabilidade</strong> ainda não chega por este endpoint. Confirma que o Apps Script exporta todas as abas.</div>';return;}
+  av.innerHTML='';
+  const alvo=10, cor=v=>v<=alvo?'#2dd4a0':v<=14?'#f59e42':'#f04b5a';
+  document.getElementById('tDur').innerHTML=[...L].reverse().map(x=>`<tr><td class="nw">${curto(x.d)}</td><td>${x.sess}</td>
+    <td class="nw">${x.km||'—'}</td><td class="nw">${x.w||'—'}</td><td>${x.t1??'—'}</td><td>${x.t2??'—'}</td><td>${x.t3??'—'}</td>
+    <td><span class="bg ${x.dl<=alvo?'b-gr':x.dl<=14?'b-or':'b-rd'}">+${x.dl}</span></td>
+    <td style="font-size:12px;color:var(--mut)">${x.nota}</td></tr>`).join('');
+  novo('cDur',{data:{labels:L.map(x=>curto(x.d)),datasets:[
+    {type:'bar',label:'Subida da FC (bpm)',data:L.map(x=>x.dl),backgroundColor:L.map(x=>cor(x.dl))},
+    {type:'line',label:'Objetivo < '+alvo,data:L.map(()=>alvo),borderColor:'#fbbf24',borderDash:[5,4],borderWidth:1.5,pointRadius:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:TC,font:{size:10},boxWidth:12}},
+      tooltip:{callbacks:{afterBody:c=>{const x=L[c[0].dataIndex];return [x.sess,x.nota].filter(Boolean);}}}},
+    scales:{x:eixoX,y:{beginAtZero:true,ticks:{color:TC,font:{size:10}},grid:{color:GC},title:{display:true,text:'bpm (1.º → 3.º terço)',color:TC,font:{size:10}}}}}});
+
 }
 
 /* ══════════ SEPARADORES ══════════ */
